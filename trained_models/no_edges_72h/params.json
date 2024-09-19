@@ -1,0 +1,8 @@
+{"batch_size":8,
+"gnn_hidden":265,
+"gnn_layers":2,
+"heads":8,
+"lr":0.0002,
+"max_dist":100,
+"max_epochs": 24,
+"remove_edges": "True"}
