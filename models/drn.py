@@ -29,10 +29,14 @@ class DRN(L.LightningModule):
         self.loss_fn = NormalCRPS()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        print(x.shape)
         x = self.embedding(x)
+        print(x.shape)
         for layer in self.linear:
             x = layer(x)
+            print(x.shape)
             x = self.relu(x)
+            print(x.shape)
         mu = self.last_linear_mu(x)  # Last Layer without ReLU
         sigma = self.softplus(self.last_linear_sigma(x))
         res = torch.cat([mu, sigma], dim=1)

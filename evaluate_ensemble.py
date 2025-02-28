@@ -3,7 +3,7 @@ import json
 import numpy as np
 import os
 import pandas as pd
-import pytorch_lightning as L
+import lightning as L
 import torch
 import torch_geometric
 

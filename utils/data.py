@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import torch
 import torch_geometric
-import xarray
+import xarray as xr
 
 from collections import defaultdict
 from sklearn.preprocessing import StandardScaler
@@ -22,14 +22,13 @@ class ZarrLoader:
     Attributes:
         data_path (str): The path to the data directory.
         leadtime (pd.Timedelta): The lead time for the forecasts.
-        countries (List[str]): The list of countries to load data for.
         features (List[str]): The list of features to load.
 
     Methods:
         get_stations(arr: xarray.Dataset) -> pd.DataFrame:
             Get the stations information from the dataset.
 
-        load_data(leadtime: str = "24h", countries: Union[str, List[str]] = "all",
+        load_data(leadtime: str = "24h",
         features: Union[str, List[str]] = "all")
         -> Tuple[xarray.Dataset, xarray.Dataset, xarray.Dataset, xarray.Dataset]:
             Load the data from Zarr files.
@@ -41,7 +40,7 @@ class ZarrLoader:
     def __init__(self, data_path: str) -> None:
         self.data_path = data_path
 
-    def get_stations(self, arr: xarray.Dataset) -> pd.DataFrame:
+    def get_stations(self, arr: xr.Dataset) -> pd.DataFrame:
         """
         Get the stations information from the dataset.
 
@@ -63,35 +62,92 @@ class ZarrLoader:
         stations = stations.sort_values("station_id").reset_index(drop=True)
         return stations
 
+    def load_raw_data(self) ->  Tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
+        ZARRDATAFOLDER = '/mnt/sda/Data2/gnnpp-data/EUPPBench-stations/'
+        print(f"[INFO] Loading training data (1997-2013)")
+        xr_train = xr.open_zarr(f'{ZARRDATAFOLDER}train.zarr')
+        xr_train_targets = xr.open_zarr(f'{ZARRDATAFOLDER}train_targets.zarr')
+
+        # Forecasts
+        print(f"[INFO] Loading data for forecasts (2017-2018)")
+        xr_forecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_f.zarr')
+        xr_targets_f = xr.open_zarr(f'{ZARRDATAFOLDER}test_f_targets.zarr')
+
+        # Reforecasts
+        print(f"[INFO] Loading data for reforecasts (2014-2017)")
+        xr_reforecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf.zarr')
+        xr_targets_rf = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf_targets.zarr')
+
+        df_train = (
+            xr_train.to_dataframe()
+            #.reorder_levels(["time", "number", "station_id"])
+            .sort_index(level=["time", "number", "station_id"])
+            .reset_index()
+        )
+
+        print("df_train loaded")
+        df_train_target = (
+            xr_train_targets.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+            .to_dataframe()
+            #.reorder_levels(["time", "station_id"])
+            .sort_index(level=["time", "station_id"])
+            .reset_index()
+        )
+        print("df_train_targets loaded")
+        df_f = (
+            xr_forecasts.to_dataframe()
+            #.reorder_levels(["time", "number", "station_id"])
+            .sort_index(level=["time", "number", "station_id"])
+            .reset_index()
+        )
+        print("df_f loaded")
+        df_f_target = (
+            xr_targets_f.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+            .to_dataframe()
+            #.reorder_levels(["time", "station_id"])
+            .sort_index(level=["time", "station_id"])
+            .reset_index()
+        )
+
+        print(f"df_f_targets {df_f_target.columns}")
+
+        df_rf = (
+            xr_reforecasts.to_dataframe()
+            #.reorder_levels(["time", "number", "station_id"])
+            .sort_index(level=["time", "number", "station_id"])
+            .reset_index()
+        )
+
+        print(f"df_rf{df_rf.columns}")
+        df_rf_target = (
+            xr_targets_rf.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+            .to_dataframe()
+            #.reorder_levels(["time", "station_id"])
+            .sort_index(level=["time", "station_id"])
+            .reset_index()
+        )
+
+        print("df_rf_targets loaded")
+
+        station_ids = df_f.station_id.unique()
+        id_to_index = {station_id: i for i, station_id in enumerate(station_ids)}
+
+        df_train["station_id"] = df_train["station_id"].apply(lambda x: id_to_index[x])
+        df_train_target["station_id"] = df_train_target["station_id"].apply(lambda x: id_to_index[x])
+        df_f["station_id"] = df_f["station_id"].apply(lambda x: id_to_index[x])
+        df_f_target["station_id"] = df_f_target["station_id"].apply(lambda x: id_to_index[x])
+        df_rf["station_id"] = df_rf["station_id"].apply(lambda x: id_to_index[x])
+        df_rf_target["station_id"] = df_rf_target["station_id"].apply(lambda x: id_to_index[x])
+
+        return df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target
+
+
     def load_data(
-        self, leadtime: str = "24h", countries: Union[str, List[str]] = "all", features: Union[str, List[str]] = "all"
-    ) -> Tuple[xarray.Dataset, xarray.Dataset, xarray.Dataset, xarray.Dataset]:
-        """
-        Load data for the specified lead time, countries, and features.
-
-        Args:
-            leadtime (str): The lead time for the forecasts and reforecasts. Default is "24h".
-            countries (Union[str, List[str]]): The countries for which to load the data. Default is "all".
-            features (Union[str, List[str]]): The features to load. Default is "all".
-
-        Returns:
-            Tuple[xarray.Dataset, xarray.Dataset, xarray.Dataset, xarray.Dataset]:
-            A tuple containing the following datasets:
-                - df_f: The forecasts dataset.
-                - df_f_target: The targets for the forecasts dataset.
-                - df_rf: The reforecasts dataset.
-                - df_rf_target: The targets for the reforecasts dataset.
-        """
+            self, leadtime: str = "24h", features: Union[str, List[str]] = "all"
+    ) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
         self.leadtime = pd.Timedelta(leadtime)
 
-        if countries == "all":
-            print("[INFO] Loading data for all countries")
-            self.countries = ["austria", "belgium", "france", "germany", "netherlands"]
-        elif isinstance(countries, list):
-            print(f"[INFO] Loading data for {countries}")
-            self.countries = countries
-        else:
-            raise ValueError("countries must be a list of strings or 'all'")
+        ZARRDATAFOLDER = '/mnt/sda/Data2/gnnpp-data/EUPPBench-stations/'
 
         if features == "all":
             print("[INFO] Loading all features")
@@ -138,132 +194,122 @@ class ZarrLoader:
         else:
             raise ValueError("features must be a list of strings or 'all'")
 
-        # Load Data from Zarr ####
-        forecasts_all_countries = []
-        reforecasts_all_countries = []
+        print(f"[INFO] Loading training data (1997-2013)")
+        xr_train = xr.open_zarr(f'{ZARRDATAFOLDER}train.zarr')
+        xr_train = xr_train.sel(step=leadtime).drop_vars(["step"])
+        print(xr_train)
+        xr_train_targets = xr.open_zarr(f'{ZARRDATAFOLDER}train_targets.zarr')
+        xr_train_targets = xr_train_targets.sel(step=leadtime).drop_vars(["step"])
 
-        targets_f_all_countries = []
-        targets_rf_all_countries = []
-        for country in self.countries:
-            print(f"[INFO] Loading data for {country}")
-            # Forecasts
-            f_surface_xr = xarray.open_zarr(f"{self.data_path}/stations_ensemble_forecasts_surface_{country}.zarr")
-            f_surface_pp_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_forecasts_surface_postprocessed_{country}.zarr"
-            )
-            f_pressure_500_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_forecasts_pressure_500_{country}.zarr"
-            )
-            f_pressure_700_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_forecasts_pressure_700_{country}.zarr"
-            )
-            f_pressure_850_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_forecasts_pressure_850_{country}.zarr"
-            )
-            f_obs_xr = xarray.open_zarr(f"{self.data_path}/stations_forecasts_observations_surface_{country}.zarr")
-            forecasts = [f_surface_xr, f_surface_pp_xr, f_pressure_500_xr, f_pressure_700_xr, f_pressure_850_xr]
+        # Forecasts
+        print(f"[INFO] Loading data for forecasts (2017-2018)")
+        xr_forecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_f.zarr')
+        xr_forecasts = xr_forecasts.sel(step=leadtime).drop_vars(["step"])
+        xr_targets_f = xr.open_zarr(f'{ZARRDATAFOLDER}test_f_targets.zarr')
+        xr_targets_f = xr_targets_f.sel(step=leadtime).drop_vars(["step"])
 
-            # Reforecasts
-            rf_surface_xr = xarray.open_zarr(f"{self.data_path}/stations_ensemble_reforecasts_surface_{country}.zarr")
-            rf_surface_pp_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_reforecasts_surface_postprocessed_{country}.zarr"
-            )
-            rf_pressure_500_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_reforecasts_pressure_500_{country}.zarr"
-            )
-            rf_pressure_700_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_reforecasts_pressure_700_{country}.zarr"
-            )
-            rf_pressure_850_xr = xarray.open_zarr(
-                f"{self.data_path}/stations_ensemble_reforecasts_pressure_850_{country}.zarr"
-            )
-            rf_obs_xr = xarray.open_zarr(f"{self.data_path}/stations_reforecasts_observations_surface_{country}.zarr")
-            reforecasts = [rf_surface_xr, rf_surface_pp_xr, rf_pressure_500_xr, rf_pressure_700_xr, rf_pressure_850_xr]
+        # Reforecasts
+        print(f"[INFO] Loading data for reforecasts (2014-2017)")
+        xr_reforecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf.zarr')
+        xr_reforecasts = xr_reforecasts.squeeze(drop=True).sel(step=leadtime).drop_vars(["step"])
+        xr_targets_rf = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf_targets.zarr')
+        xr_targets_rf = xr_targets_rf.squeeze(drop=True).sel(step=leadtime).drop_vars(["step"])
 
-            forecasts = [forecast.drop_vars("valid_time").squeeze(drop=True) for forecast in forecasts]
-            reforecasts = [reforecast.drop_vars("valid_time").squeeze(drop=True) for reforecast in reforecasts]
+        # extract stations
+        self.stations_train = self.get_stations(xr_train)
+        self.stations_f = self.get_stations(xr_forecasts)
+        self.stations_rf = self.get_stations(xr_reforecasts)
 
-            forecasts = xarray.merge(forecasts).sel(step=self.leadtime)
-            reforecasts = xarray.merge(reforecasts).sel(step=self.leadtime)
-
-            forecasts_all_countries.append(forecasts)
-            reforecasts_all_countries.append(reforecasts)
-
-            targets_f = f_obs_xr.squeeze(drop=True).sel(step=self.leadtime)
-            targets_rf = rf_obs_xr.squeeze(drop=True).sel(step=self.leadtime)
-
-            targets_f_all_countries.append(targets_f)
-            targets_rf_all_countries.append(targets_rf)
-
-        forecasts = xarray.concat(forecasts_all_countries, dim="station_id")
-        reforecasts = xarray.concat(reforecasts_all_countries, dim="station_id")
-
-        targets_f = xarray.concat(targets_f_all_countries, dim="station_id")
-        targets_rf = xarray.concat(targets_rf_all_countries, dim="station_id")
-
-        forecasts = forecasts.drop_vars(
-            ["model_altitude", "model_land_usage", "model_latitude", "model_longitude", "station_land_usage", "step"]
+        xr_train = xr_train.drop_vars(
+            ["model_altitude", "model_land_usage", "model_latitude", "model_longitude", "station_land_usage"]
         )
-        reforecasts = reforecasts.drop_vars(
-            ["model_altitude", "model_land_usage", "model_latitude", "model_longitude", "station_land_usage", "step"]
+        print(xr_train)
+        xr_forecasts = xr_forecasts.drop_vars(
+            ["model_altitude", "model_land_usage", "model_latitude", "model_longitude", "station_land_usage"]
+        )
+        xr_reforecasts = xr_reforecasts.drop_vars(
+            ["model_altitude", "model_land_usage", "model_latitude", "model_longitude", "station_land_usage"]
         )
         print(
             f"[INFO] Data loaded successfully. Forecasts shape:\
-            {forecasts.t2m.shape}, Reforecasts shape: {reforecasts.t2m.shape}"
+            {xr_forecasts.t2m.shape}, Reforecasts shape: {xr_reforecasts.t2m.shape}"
         )
-        # Extract Stations ####
-        self.stations_f = self.get_stations(forecasts)
-        self.stations_rf = self.get_stations(reforecasts)
 
-        # Turn into pandas Dataframe ####
-        df_f = (
-            forecasts.to_dataframe()
+        df_train = (
+            xr_train.to_dataframe()
             .reorder_levels(["time", "number", "station_id"])
             .sort_index(level=["time", "number", "station_id"])
             .reset_index()
         )
+
+        print("df_train loaded")
+        df_train_target = (
+            xr_train_targets.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+            .to_dataframe()
+            .reorder_levels(["time", "station_id"])
+            .sort_index(level=["time", "station_id"])
+            .reset_index()
+        )
+        print("df_train_targets loaded")
+        df_f = (
+            xr_forecasts.to_dataframe()
+            .reorder_levels(["time", "number", "station_id"])
+            .sort_index(level=["time", "number", "station_id"])
+            .reset_index()
+        )
+        print("df_f loaded")
         df_f_target = (
-            targets_f.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name", "step"])
+            xr_targets_f.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
             .to_dataframe()
             .reorder_levels(["time", "station_id"])
             .sort_index(level=["time", "station_id"])
             .reset_index()
         )
 
-        df_rf = reforecasts.to_dataframe().reset_index()
-        df_rf_target = (
-            targets_rf.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name", "step"])
-            .to_dataframe()
+        print(f"df_f_targets {df_f_target.columns}")
+
+        df_rf = (
+            xr_reforecasts.to_dataframe()
+            .reorder_levels(["time", "number", "station_id"])
+            .sort_index(level=["time", "number", "station_id"])
             .reset_index()
         )
 
-        df_rf["time"] = df_rf["time"] - df_rf["year"].apply(lambda x: pd.Timedelta((21 - x) * 365, unit="day"))
-        df_rf_target["time"] = df_rf_target["time"] - df_rf_target["year"].apply(
-            lambda x: pd.Timedelta((21 - x) * 365, unit="day")  # ! 21 or 20 years of reforecasts
-        )
-
-        df_rf = df_rf.drop(columns=["year"]).reindex(columns=df_f.columns).sort_values(["time", "number", "station_id"])
+        print(f"df_rf{df_rf.columns}")
         df_rf_target = (
-            df_rf_target.drop(columns=["year"]).reindex(columns=df_f_target.columns).sort_values(["time", "station_id"])
+            xr_targets_rf.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+            .to_dataframe()
+            .reorder_levels(["time", "station_id"])
+            .sort_index(level=["time", "station_id"])
+            .reset_index()
         )
 
-        # Turn Station IDs into a Station Index starting from 0
+        print("df_rf_targets loaded")
+
         station_ids = df_f.station_id.unique()
         id_to_index = {station_id: i for i, station_id in enumerate(station_ids)}
 
+        df_train["station_id"] = df_train["station_id"].apply(lambda x: id_to_index[x])
+        df_train_target["station_id"] = df_train_target["station_id"].apply(lambda x: id_to_index[x])
         df_f["station_id"] = df_f["station_id"].apply(lambda x: id_to_index[x])
         df_f_target["station_id"] = df_f_target["station_id"].apply(lambda x: id_to_index[x])
         df_rf["station_id"] = df_rf["station_id"].apply(lambda x: id_to_index[x])
         df_rf_target["station_id"] = df_rf_target["station_id"].apply(lambda x: id_to_index[x])
 
-        # Cut features ####
+        # Cut features #### But this puts it in the wrong order! => check again when used!!
+        df_train = df_train[self.features]
         df_f = df_f[self.features]
         df_rf = df_rf[self.features]
 
-        return df_f, df_f_target, df_rf, df_rf_target
+        # df_train: (1997-2013), df_f: (2017-2018), df_rf: (2014-2017)
+
+        return df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target
 
     def validate_stations(self):
-        return (self.stations_f.station_id == self.stations_rf.station_id).all()
+        test1 = (self.stations_f.station_id == self.stations_rf.station_id).all()
+        test2 = (self.stations_train.station_id == self.stations_rf.station_id).all()
+        test3 = (self.stations_f.station_id == self.stations_train.station_id).all()
+        return (test1 and test2 and test3)
 
 
 def load_dataframes(
@@ -285,7 +331,7 @@ def load_dataframes(
     """
 
     # Load Data ######################################################################
-    DATA_FOLDER = f"data/dataframes_{leadtime}"
+    DATA_FOLDER = f"/mnt/sda/Data2/gnnpp-data/dataframes_{leadtime}"
     res = defaultdict(lambda: None)
 
     if mode == "train" or mode == "eval":
@@ -327,11 +373,11 @@ def load_dataframes(
 
         else:
             print("[INFO] Data files not found, will load from zarr.")
-            loader = ZarrLoader("data/EUPPBench-stations")
+            loader = ZarrLoader("mnt/sda/Data2/gnnpp-data/EUPPBench-stations")
 
             print("[INFO] Loading data...")
-            df_f, df_f_target, df_rf, df_rf_target = loader.load_data(
-                leadtime=leadtime, countries="all", features="all"
+            df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target = loader.load_data(
+                leadtime=leadtime, features="all"
             )
             assert loader.validate_stations(), "Stations in forecasts and reforecasts do not match."
             stations_f = loader.stations_f
@@ -342,8 +388,8 @@ def load_dataframes(
             # Now train with full data
             # Train 1997-2013 # 13 years (Reforecasts)
             train_cutoff = pd.Timestamp("2014-01-01")
-            train_rf = df_rf.loc[df_rf["time"] < train_cutoff, :]
-            train_rf_target = df_rf_target.loc[df_rf_target["time"] < train_cutoff, :]
+            train_rf = df_train.loc[df_train["time"] < train_cutoff, :]
+            train_rf_target = df_train_target.loc[df_train_target["time"] < train_cutoff, :]
 
             test_rf = df_rf.loc[(df_rf["time"] >= train_cutoff), :]
             test_rf_target = df_rf_target.loc[(df_rf_target["time"] >= train_cutoff), :]
@@ -375,7 +421,7 @@ def load_dataframes(
         # Training data
         TRAIN_RF_PATH = os.path.join(DATA_FOLDER, "train_rf.pkl")
         TRAIN_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "train_rf_target.pkl")
-        # Test on Reforceasts
+        # Test on Reforecasts
         VALID_RF_PATH = os.path.join(DATA_FOLDER, "valid_rf.pkl")
         VALID_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "valid_rf_target.pkl")
 
@@ -398,27 +444,29 @@ def load_dataframes(
 
         else:
             print("[INFO] Data files not found, will load from zarr.")
-            loader = ZarrLoader("data/EUPPBench-stations")
+            loader = ZarrLoader("mnt/sda/Data2/gnnpp-data/EUPPBench-stations")
             print("[INFO] Loading data...")
-            df_f, df_f_target, df_rf, df_rf_target = loader.load_data(
-                leadtime=leadtime, countries="all", features="all"
+            df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target = loader.load_data(
+                leadtime=leadtime, features="all"
             )
             assert loader.validate_stations(), "Stations in forecasts and reforecasts do not match."
             stations_f = loader.stations_f
             # Split the data
+            # df_train: (1997-2013), df_f: (2017-2018), df_rf: (2014-2017)
             # Test 2014-2017 # 4 years (forecasts)
             # Test2 2014-15 # 2 years (reforecasts) # !OTHER PAPER USED 4 YEARS (2012-2015)
             # Valid 2010-2013 # 4 years
             # Train 1997-2009 # 13 years
+
             train_cutoff = pd.Timestamp("2010-01-01")
             valid_cutoff = pd.Timestamp("2014-01-01")
 
-            train_rf = df_rf.loc[df_rf["time"] < train_cutoff, :]
-            train_rf_target = df_rf_target.loc[df_rf_target["time"] < train_cutoff, :]
+            train_rf = df_train.loc[df_train["time"] < train_cutoff, :]
+            train_rf_target = df_train_target.loc[df_train_target["time"] < train_cutoff, :]
 
-            valid_rf = df_rf.loc[(df_rf["time"] >= train_cutoff) & (df_rf["time"] < valid_cutoff), :]
-            valid_rf_target = df_rf_target.loc[
-                (df_rf_target["time"] >= train_cutoff) & (df_rf_target["time"] < valid_cutoff), :
+            valid_rf = df_train.loc[(df_train["time"] >= train_cutoff) & (df_train["time"] < valid_cutoff), :]
+            valid_rf_target = df_train_target.loc[
+                (df_train_target["time"] >= train_cutoff) & (df_train_target["time"] < valid_cutoff), :
             ]
 
             if not os.path.exists(DATA_FOLDER):
@@ -433,8 +481,81 @@ def load_dataframes(
         res["train"] = (train_rf, train_rf_target)
         res["valid"] = (valid_rf, valid_rf_target)
         res["stations"] = stations_f
+
         return res
 
+def load_complete_dataframe() -> DefaultDict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
+
+    DATA_FOLDER = f"/mnt/sda/Data2/gnnpp-data/dataframes_complete"
+    res = defaultdict(lambda: None)
+
+    DATA_FOLDER = os.path.join(DATA_FOLDER, "final_train")
+    # Training data
+    TRAIN_RF_PATH = os.path.join(DATA_FOLDER, "train_rf_final.pkl")
+    TRAIN_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "train_rf_target_final.pkl")
+    # Test on Reforceasts
+    TEST_RF_PATH = os.path.join(DATA_FOLDER, "valid_rf_final.pkl")
+    TEST_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "valid_rf_target_final.pkl")
+    # Test on Forecasts
+    TEST_F_PATH = os.path.join(DATA_FOLDER, "test_f_final.pkl")
+    TEST_F_TARGET_PATH = os.path.join(DATA_FOLDER, "test_f_target_final.pkl")
+
+    if (
+        os.path.exists(TRAIN_RF_PATH)
+        and os.path.exists(TRAIN_RF_TARGET_PATH)
+        and os.path.exists(TEST_RF_PATH)
+        and os.path.exists(TEST_RF_TARGET_PATH)
+        and os.path.exists(TEST_F_PATH)
+        and os.path.exists(TEST_F_TARGET_PATH)
+    ):
+
+        print("[INFO] Dataframes exist. Will load pandas dataframes.")
+        train_rf = pd.read_pickle(TRAIN_RF_PATH)
+        train_rf_target = pd.read_pickle(TRAIN_RF_TARGET_PATH)
+
+        test_rf = pd.read_pickle(TEST_RF_PATH)
+        test_rf_target = pd.read_pickle(TEST_RF_TARGET_PATH)
+
+        test_f = pd.read_pickle(TEST_F_PATH)
+        test_f_target = pd.read_pickle(TEST_F_TARGET_PATH)
+
+    else:
+        print("[INFO] Data files not found, will load from zarr.")
+        loader = ZarrLoader("mnt/sda/Data2/gnnpp-data/EUPPBench-stations")
+
+        print("[INFO] Loading data...")
+        df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target = loader.load_raw_data()
+
+        # Split the data
+        # Test 2014-2017 # 4 years (Forecasts)
+        # Test2 2014-15 # 2 years (Reforecasts)
+        # Now train with full data
+        # Train 1997-2013 # 13 years (Reforecasts)
+        train_rf = df_train
+        train_rf_target = df_train_target
+
+        test_rf = df_rf
+        test_rf_target = df_rf_target
+
+        test_f = df_f
+        test_f_target = df_f_target
+
+        if not os.path.exists(DATA_FOLDER):
+            os.makedirs(DATA_FOLDER)
+        print("[INFO] Saving dataframes to disk...")
+        train_rf.to_pickle(TRAIN_RF_PATH)
+        train_rf_target.to_pickle(TRAIN_RF_TARGET_PATH)
+
+        test_rf.to_pickle(TEST_RF_PATH)
+        test_rf_target.to_pickle(TEST_RF_TARGET_PATH)
+
+        test_f.to_pickle(TEST_F_PATH)
+        test_f_target.to_pickle(TEST_F_TARGET_PATH)
+
+    res["train"] = (train_rf, train_rf_target)
+    res["test_rf"] = (test_rf, test_rf_target)
+    res["test_f"] = (test_f, test_f_target)
+    return res
 
 def load_stations(df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
     """Create a DataFrame containing station-specific data from the input DataFrame.
@@ -464,11 +585,11 @@ def load_distances(stations: pd.DataFrame) -> np.ndarray:
     # Load Distances #################################################################
     if os.path.exists("data/distances_EUPP.npy"):
         print("[INFO] Loading distances from file...")
-        mat = np.load("data/distances_EUPP.npy")
+        mat = np.load("/mnt/sda/Data2/gnnpp-data/distances_EUPP.npy")
     else:
         print("[INFO] Computing distances...")
         mat = compute_dist_matrix(stations)
-        np.save("data/distances_EUPP.npy", mat)
+        np.save("/mnt/sda/Data2/gnnpp-data/distances_EUPP.npy", mat)
     return mat
 
 
