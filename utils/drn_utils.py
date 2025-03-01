@@ -56,11 +56,6 @@ def drop_nans(dfs: Tuple[pd.DataFrame, pd.DataFrame]) -> Tuple[pd.DataFrame, pd.
         Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames with rows containing
             NaN values in the 't2m' column dropped.
     """
-    ## reset_index did not match
     nans = dfs[1]["t2m"].isna().reset_index(drop=True)
-    ### alternative
-    ### nans = dfs[1]["t2m"].isna().reset_index(drop=False)
     res = (dfs[0][~nans], dfs[1][~nans])
-    ### alternative
-    ### res = (dfs[0][~nans].reset_index(drop=True), dfs[1][~nans].reset_index(drop=True))
     return res
