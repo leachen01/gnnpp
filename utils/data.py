@@ -56,6 +56,7 @@ class ZarrLoader:
                 "lat": arr.station_latitude.values,
                 "lon": arr.station_longitude.values,
                 "altitude": arr.station_altitude.values,
+                "orog": arr.model_orography.values,
                 "name": arr.station_name.values,
             }
         )
@@ -331,7 +332,7 @@ def load_dataframes(
     """
 
     # Load Data ######################################################################
-    DATA_FOLDER = f"/mnt/sda/Data2/gnnpp-data/dataframes_{leadtime}"
+    DATA_FOLDER = f"/mnt/sda/Data2/gnnpp-data/orog_dataframes_{leadtime}" #orog change!
     res = defaultdict(lambda: None)
 
     if mode == "train" or mode == "eval":
@@ -493,7 +494,7 @@ def load_complete_dataframe() -> DefaultDict[str, Tuple[pd.DataFrame, pd.DataFra
     # Training data
     TRAIN_RF_PATH = os.path.join(DATA_FOLDER, "train_rf_final.pkl")
     TRAIN_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "train_rf_target_final.pkl")
-    # Test on Reforceasts
+    # Test on Reforecasts
     TEST_RF_PATH = os.path.join(DATA_FOLDER, "valid_rf_final.pkl")
     TEST_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "valid_rf_target_final.pkl")
     # Test on Forecasts
