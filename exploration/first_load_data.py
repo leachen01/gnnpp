@@ -7,17 +7,17 @@ from utils.data import load_dataframes, load_distances, normalize_features_and_c
 
 def main():
     # !! still haven't loaded 72h and 120h
-#    dataframes = load_dataframes(mode="train", leadtime="24h")
-#    (train_rf, train_rf_target) = dataframes["train"]
-#    (test_rf, test_rf_target) = dataframes["test_rf"]
-#    (test_f, test_f_target) = dataframes["test_f"]
-#    stations_f = dataframes["stations"]
+    dataframes = load_dataframes(mode="train", leadtime="72h")
+    (train_rf, train_rf_target) = dataframes["train"]
+    (test_rf, test_rf_target) = dataframes["test_rf"]
+    (test_f, test_f_target) = dataframes["test_f"]
+    stations_f = dataframes["stations"]
     # load the complete data and save it as picklefile
 
-    dataframes = load_dataframes(mode="hyperopt", leadtime="24h")
-    (train_rf, train_rf_target) = dataframes["train"]
-    (valid_rf, valid_rf_target) = dataframes["valid"]
-    stations_f = dataframes["stations"]
+    hyp_dataframes = load_dataframes(mode="hyperopt", leadtime="72h")
+    (htrain_rf, htrain_rf_target) = hyp_dataframes["train"]
+    (valid_rf, valid_rf_target) = hyp_dataframes["valid"]
+    hstations_f = hyp_dataframes["stations"]
 
     print(f"Train_rf: {train_rf}")
     print(f"Valid_rf: {valid_rf}")
@@ -34,7 +34,7 @@ def main():
 
     print(df)
 
-    dataframes = load_dataframes(mode="eval", leadtime="24h")
+    dataframes = load_dataframes(mode="eval", leadtime="72h")
     (train_rf, train_rf_target) = dataframes["train"]
     (test_rf, test_rf_target) = dataframes["test_rf"]
     (test_f, test_f_target) = dataframes["test_f"]
