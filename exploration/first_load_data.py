@@ -7,14 +7,14 @@ from utils.data import load_dataframes, load_distances, normalize_features_and_c
 
 def main():
     # !! still haven't loaded 72h and 120h
-    dataframes = load_dataframes(mode="train", leadtime="72h")
+    dataframes = load_dataframes(mode="train", leadtime="120h")
     (train_rf, train_rf_target) = dataframes["train"]
     (test_rf, test_rf_target) = dataframes["test_rf"]
     (test_f, test_f_target) = dataframes["test_f"]
     stations_f = dataframes["stations"]
     # load the complete data and save it as picklefile
 
-    hyp_dataframes = load_dataframes(mode="hyperopt", leadtime="72h")
+    hyp_dataframes = load_dataframes(mode="hyperopt", leadtime="120h")
     (htrain_rf, htrain_rf_target) = hyp_dataframes["train"]
     (valid_rf, valid_rf_target) = hyp_dataframes["valid"]
     hstations_f = hyp_dataframes["stations"]
@@ -34,7 +34,7 @@ def main():
 
     print(df)
 
-    dataframes = load_dataframes(mode="eval", leadtime="72h")
+    dataframes = load_dataframes(mode="eval", leadtime="120h")
     (train_rf, train_rf_target) = dataframes["train"]
     (test_rf, test_rf_target) = dataframes["test_rf"]
     (test_f, test_f_target) = dataframes["test_f"]
