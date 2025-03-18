@@ -878,7 +878,8 @@ def create_multigraph(df, df_target, distances, max_dist):
     edge_index = edges.T  # (2, num_edges) holds indices of connected nodes for one level (forecast) of the multigraph
 
     # Create edge features
-    edge_attr = distances[edges[:, 0], edges[:, 1]]
+    #edge_attr = distances[edges[:, 0], edges[:, 1]]
+    edge_attr = distances[mask]
     edge_attr = edge_attr.reshape(-1, 1)
     max_len = np.max(edge_attr)
     standardized_edge_attr = edge_attr / max_len

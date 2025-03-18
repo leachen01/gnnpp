@@ -18,10 +18,14 @@ def plot_map() -> plt.Axes:
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(1, 1, 1, projection=proj)
     ax.coastlines()
-    ax.set_extent([5, 16, 47, 56], crs=proj)
+    ax.set_extent([1, 12, 45, 54], crs=proj)
     ax.add_feature(cfeature.LAND, color="lightgrey")
     ax.add_feature(cfeature.BORDERS)
     ax.add_feature(cfeature.OCEAN)
+
+    # Fix the aspect ratio of the map
+    lat_center = (ax.get_extent()[2] + ax.get_extent()[3]) / 2
+    ax.set_aspect(1 / np.cos(np.radians(lat_center)))
     return ax
 
 
