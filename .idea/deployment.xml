@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="ltchen@econ-stat-RR02.econ.kit.edu:22 password (7)" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="ltchen@econ-stat-RR02.econ.kit.edu:22 password (15)" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="ltchen@econ-stat-RR02.econ.kit.edu:22 password (10)">
         <serverdata>
@@ -13,6 +13,34 @@
         <serverdata>
           <mappings>
             <mapping deploy="/tmp/pycharm_project_413" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="ltchen@econ-stat-RR02.econ.kit.edu:22 password (12)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_101" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="ltchen@econ-stat-RR02.econ.kit.edu:22 password (13)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_728" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="ltchen@econ-stat-RR02.econ.kit.edu:22 password (14)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_861" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="ltchen@econ-stat-RR02.econ.kit.edu:22 password (15)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_408" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
