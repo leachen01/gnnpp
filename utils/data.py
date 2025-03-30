@@ -56,6 +56,7 @@ class ZarrLoader:
                 "lat": arr.station_latitude.values,
                 "lon": arr.station_longitude.values,
                 "altitude": arr.station_altitude.values,
+                "orog": arr.model_orography.values,
                 "name": arr.station_name.values,
             }
         )
@@ -583,7 +584,7 @@ def load_distances(stations: pd.DataFrame) -> np.ndarray:
         np.ndarray: The distance matrix.
     """
     # Load Distances #################################################################
-    if os.path.exists("data/distances_EUPP.npy"):
+    if os.path.exists("/mnt/sda/Data2/gnnpp-data/distances_EUPP.npy"):
         print("[INFO] Loading distances from file...")
         mat = np.load("/mnt/sda/Data2/gnnpp-data/distances_EUPP.npy")
     else:

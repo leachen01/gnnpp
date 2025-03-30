@@ -7,11 +7,12 @@ from utils.data import load_dataframes, load_distances, normalize_features_and_c
 
 def main():
     # !! still haven't loaded 72h and 120h
-    #dataframes = load_dataframes(mode="train", leadtime="120h")
+    dataframes = load_dataframes(mode="train", leadtime="120h")
     #(train_rf, train_rf_target) = dataframes["train"]
     #(test_rf, test_rf_target) = dataframes["test_rf"]
     #(test_f, test_f_target) = dataframes["test_f"]
-    #stations_f = dataframes["stations"]
+    stations_f = dataframes["stations"]
+
     # load the complete data and save it as picklefile
 
     hyp_dataframes = load_dataframes(mode="hyperopt", leadtime="120h")
@@ -35,16 +36,17 @@ def main():
     #print(df)
 
     dataframes = load_dataframes(mode="eval", leadtime="120h")
-    (train_rf, train_rf_target) = dataframes["train"]
-    (test_rf, test_rf_target) = dataframes["test_rf"]
-    (test_f, test_f_target) = dataframes["test_f"]
-    print(f"train_rf: {train_rf}")
-    print(f"test_rf: {test_rf}")
-    print(f"divided by ensemble members in train per station (1997-2013): {train_rf.shape[0]/train_rf.number.nunique()/122}")
-    print(f"divided by ensemble members in test_rf per station (2014-2017): {test_rf.shape[0] / test_rf.number.nunique() / 122}")
-    print(f"divided by ensemble members in test_f per station (2017-2018): {test_f.shape[0] / test_f.number.nunique() / 122}")
+    #(train_rf, train_rf_target) = dataframes["train"]
+    #(test_rf, test_rf_target) = dataframes["test_rf"]
+    #(test_f, test_f_target) = dataframes["test_f"]
+    #print(f"train_rf: {train_rf}")
+    #print(f"test_rf: {test_rf}")
+    #print(f"divided by ensemble members in train per station (1997-2013): {train_rf.shape[0]/train_rf.number.nunique()/122}")
+    #print(f"divided by ensemble members in test_rf per station (2014-2017): {test_rf.shape[0] / test_rf.number.nunique() / 122}")
+    #print(f"divided by ensemble members in test_f per station (2017-2018): {test_f.shape[0] / test_f.number.nunique() / 122}")
     #dist = load_distances(stations_f)
     # print(dist)
+    print(stations_f)
 
 #    graphs_train_rf, tests = normalize_features_and_create_graphs(
 #        training_data=dataframes["train"],
