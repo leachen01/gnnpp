@@ -80,6 +80,8 @@ class NormalCRPS(torch.nn.Module):
         """
         mask = ~torch.isnan(y)
         mu, sigma = torch.split(mu_sigma, 1, dim=1)
+        print(f"mu: {mu}, sigma: {sigma}")
+        print(f"mu shape: {mu.shape}, sigma shape: {sigma.shape}")
         y = y.unsqueeze(1)
 
         mu = mu[mask]

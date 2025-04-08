@@ -1,0 +1,216 @@
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+import torch_geometric.datasets as datasets
+import torch_geometric.data as data
+import torch_geometric.transforms as transforms
+import networkx as nx
+from torch_geometric.utils import to_networkx
+from scipy.interpolate import interp1d
+from utils.data import *
+from utils.plot import plot_map
+from torch_geometric.utils import is_undirected, degree, contains_isolated_nodes
+
+def signed_difference(x, y): # macht es Sinn signed difference zu benutzen?
+    return x - y
+
+def dist_km(lat1: float = 0, lon1: float = 0, lat2: float = 0, lon2: float = 0) -> float:
+    return geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+
+def signed_geodesic_km(lat1: float = 0, lon1: float = 0, lat2: float = 0, lon2: float = 0) -> float:
+    if lat1 > lat2 or lon1 > lon2:
+        dist = geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+    else:
+        dist = -1 * geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+    return dist
+
+def create_emp_cdf(station_temps):  # F_i(x)
+    data_sorted = np.sort(station_temps)
+    cdf = np.arange(len(data_sorted)) / len(data_sorted)
+    cdf_function = interp1d(data_sorted, cdf, kind='previous', bounds_error=False, fill_value=(0, 1))
+    return cdf_function
+
+def dist2(i_id, j_id, train_set):
+# def dist2(i_id, j_id):
+    # print(i_id, j_id)
+    i_train_temps = train_set[train_set['station_id'] == i_id]['t2m']
+    j_train_temps = train_set[train_set['station_id'] == j_id]['t2m']
+    F_i = create_emp_cdf(i_train_temps)
+    F_j = create_emp_cdf(j_train_temps)
+    sum = 0
+    S = np.arange(train_set['t2m'].min(), train_set['t2m'].max(), 1)
+    for x in S:
+        sum += abs(F_i(x) - F_j(x))
+    d2 = sum * 1/S.shape[0]
+    return d2
+
+# def compute_d2_matrix(stations: pd.DataFrame, df: pd.DataFrame) -> np.array:
+    # macht es Sinn, dass trainset hier hinzugegeben wird fuer die graphenerstellung?
+def compute_d2_matrix(stations: pd.DataFrame) -> np.array:
+    station_id = np.array(stations.index).reshape(-1, 1)
+    # print(station_id.shape)
+    # print(station_id.T.shape)
+    vectorized_dist2 = np.vectorize(dist2, excluded=[2])
+    distance_matrix = vectorized_dist2(station_id, station_id.T, dfs['train'][0])
+    # distance_matrix = np.vectorize(dist2)(station_id, station_id.T)
+    return distance_matrix
+
+def load_d2_distances(stations: pd.DataFrame) -> np.ndarray:
+    if os.path.exists("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy"):
+        print("[INFO] Loading distances from file...")
+        mat = np.load("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy")
+    else:
+        print("[INFO] Computing distances...")
+        mat = compute_d2_matrix(stations)
+        np.save("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy", mat)
+    return mat
+
+def create_emp_cdf_of_errors(station_df, target_temp): # cdfs v
+    f_bar = station_df.groupby(['time'])['t2m'].mean()
+    def cdf_functions(z):
+        return (1/ station_df.nunique()['time']) * np.sum(f_bar.to_numpy() - target_temp.to_numpy() <= z)
+    return cdf_functions
+
+def dist3(i_id, j_id, cdfs):
+    print(i_id, j_id)
+    sum = 0
+    S = np.arange(-10, 10, 0.5)
+    for x in S:
+        sum += abs(cdfs[i_id](x) - cdfs[j_id](x))
+    d3 = sum * 1/S.shape[0]
+    return d3
+
+def compute_d3_matrix(stations: pd.DataFrame, train_set, train_target_set) -> np.array:
+    station_id = np.array(stations.index).reshape(-1, 1)
+    cdfs = []
+    for i_id in range(0, 122):
+        i_train = train_set[train_set['station_id'] == i_id]
+        i_target_temps = train_target_set[train_target_set['station_id'] == i_id]['t2m']
+        G_s = create_emp_cdf_of_errors(i_train, i_target_temps)
+        cdfs.append(G_s)
+    print("[INFO] Cdfs created.")
+    vectorized_dist3 = np.vectorize(dist3, excluded=[2])
+    distance_matrix = vectorized_dist3(station_id, station_id.T, cdfs)
+    return distance_matrix
+
+def load_d3_distances(stations: pd.DataFrame, train_set, train_target_set) -> np.ndarray:
+    if os.path.exists("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy"):
+        print("[INFO] Loading distances from file...")
+        mat = np.load("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy")
+    else:
+        print("[INFO] Computing distances...")
+        mat = compute_d3_matrix(stations, train_set, train_target_set)
+        np.save("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy", mat)
+    return mat
+
+def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set) -> np.ndarray:
+    mat_d2 = load_d2_distances(stations)
+    mat_d3 = load_d3_distances(stations, train_set, train_target_set)
+    mat = mat_d2 + mat_d3
+    return mat
+
+def compute_mat(df: pd.DataFrame, mode: str, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None) -> np.array:
+    if mode == "geo":
+        lon = np.array(df["lon"].copy())
+        lat = np.array(df["lat"].copy())
+        lon_mesh, lat_mesh = np.meshgrid(lon, lat)
+        distance_matrix = np.vectorize(dist_km)(lat_mesh, lon_mesh, lat_mesh.T, lon_mesh.T)
+    if mode == "alt":
+        altitude = np.array(df["altitude"].copy())
+        mesh1, mesh2 = np.meshgrid(altitude, altitude)
+        distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2) # zwei vektoren voneinander abziehen
+    if mode == "alt-orog":
+        altorog = np.array((df['altitude']-df['orog']).copy())
+        mesh1, mesh2 = np.meshgrid(altorog, altorog)
+        distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2)
+    if mode == "lon":
+        lon = np.array(df["lon"].copy())
+        mesh1, mesh2 = np.meshgrid(lon, lon)
+        distance_matrix = np.vectorize(signed_geodesic_km)(lon1 =mesh1, lon2=mesh2)
+    if mode == "lat":
+        lat = np.array(df["lat"].copy())
+        mesh1, mesh2 = np.meshgrid(lat, lat) # check if this meshgrid actually works!!
+        distance_matrix = np.vectorize(signed_geodesic_km)(lat1=mesh1, lat2=mesh2) # vorzeichen!
+    if mode == "dist2":
+        distance_matrix = load_d2_distances(df)
+    if mode == "dist3":
+        distance_matrix = load_d3_distances(df, train_set, train_target_set)
+    if mode == "dist4":
+        distance_matrix = load_d4_distances(df, train_set, train_target_set)
+    return distance_matrix
+
+def get_adj(dist_matrix_sliced: np.array, max_dist: float = 50) -> np.array:
+    mask = None
+    mask = (dist_matrix_sliced <= max_dist) & (dist_matrix_sliced >= (-max_dist))
+    diagonal = np.full((mask.shape[0], mask.shape[1]), True, dtype=bool)
+    np.fill_diagonal(diagonal, False)
+    mask = np.logical_and(mask, diagonal)
+    return mask
+
+# def create_graph(attributes: list, edges: list, date: str, ensemble: int, summary_stats: bool = False): # generic create_graph function
+# list of tubles (attribute name & max)
+
+def create_graph_data(date: str, ensemble: int, sum_stats: bool = False):
+    day = df[df.time == date]
+    ens = day[day.number == ensemble] # only if sum_stats = Fals
+    ens = ens.drop(columns=["time", "number"])
+    x = torch.tensor(ens.to_numpy(dtype=np.float32))
+
+    target = df_target[df_target.time == date]
+    target = target.drop(columns=["time", "station_id"]).to_numpy()
+    y = torch.tensor(target)
+
+    lon = ens["station_longitude"].to_numpy().reshape(-1, 1)
+    # print(lon.shape)
+    lat = ens["station_latitude"].to_numpy().reshape(-1, 1)
+    # print(lat.shape)
+    pos = np.concatenate([lon, lat], axis=1).reshape(-1, 2)
+    pos_dict = dict(enumerate(pos))
+
+    return x, y, pos_dict, (lon, lat)
+
+def create_graph(attributes: list, edges: list, date: str, ensemble: int, sum_stats: bool = False):
+    x, y, pos_dict, (lon, lat) = create_graph_data(date, ensemble, sum_stats)
+    # assert all elements in edges exist in attributes!
+    first_el = [t[0] for t in edges]
+    assert set(attributes).issuperset(set(first_el)), "edges are created based on attributes."
+
+    # attribute tensor creation
+    t_dim = len(attributes)
+    attr_tensor = torch.empty((122, 122, t_dim), dtype=torch.float32)
+    for i, list_element in enumerate(attributes):
+        # compute distance matrix
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(dfs['stations'], list_element))
+
+    attr_mask = torch.empty(122, 122, len(edges))
+    for i, el in enumerate(edges):
+        attr, max_value = el
+        # position von attr in der attribute liste => welche distance matrix in tensor
+        pos = attributes.index(attr)
+        attr_mask[:,:,i] = get_adj(attr_tensor[:, :, pos], max_dist=max_value)
+
+    g_adj = attr_mask.any(dim=2)
+    g_edges = np.array(np.argwhere(g_adj))
+    g_edge_idx = torch.tensor(g_edges.T)
+    g_edge_attr = attr_tensor[g_adj]
+
+    # standardization
+    max_edge_attr = g_edge_attr.max(dim=0).values
+    std_g_edge_attr = g_edge_attr / max_edge_attr
+
+    graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=date, y=y)
+    return graph, pos_dict
+
+def facts_about(graph):
+    n_nodes = graph.num_nodes
+    n_edges = graph.num_edges
+    node_degrees = degree(graph.edge_index[0], num_nodes=n_nodes)
+    avg_degree = node_degrees.mean().item()
+    n_isolated_nodes = (node_degrees == 0).sum().item()
+    feature_dim = graph.x.size(1)
+    edge_dim = graph.num_edge_features
+
+    print(f"Number of nodes: {n_nodes} with feature dimension of x: {feature_dim}")
+    print(f"Number of isolated nodes: {n_isolated_nodes}")
+    print(f"Number of edges: {n_edges} with edge dimension: {edge_dim}")
+    print(f"Average node degree: {avg_degree}")
