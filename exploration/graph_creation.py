@@ -10,6 +10,7 @@ from scipy.interpolate import interp1d
 from utils.data import *
 from utils.plot import plot_map
 from torch_geometric.utils import is_undirected, degree, contains_isolated_nodes
+from tqdm import tqdm
 
 def signed_difference(x, y): # macht es Sinn signed difference zu benutzen?
     return x - y
@@ -44,24 +45,22 @@ def dist2(i_id, j_id, train_set):
     d2 = sum * 1/S.shape[0]
     return d2
 
-# def compute_d2_matrix(stations: pd.DataFrame, df: pd.DataFrame) -> np.array:
-    # macht es Sinn, dass trainset hier hinzugegeben wird fuer die graphenerstellung?
-def compute_d2_matrix(stations: pd.DataFrame) -> np.array:
+def compute_d2_matrix(stations: pd.DataFrame, train_set: pd.DataFrame) -> np.array: # nochmal checken ob die funktion noch funktionert!!
     station_id = np.array(stations.index).reshape(-1, 1)
     # print(station_id.shape)
     # print(station_id.T.shape)
     vectorized_dist2 = np.vectorize(dist2, excluded=[2])
-    distance_matrix = vectorized_dist2(station_id, station_id.T, dfs['train'][0])
+    distance_matrix = vectorized_dist2(station_id, station_id.T, train_set)
     # distance_matrix = np.vectorize(dist2)(station_id, station_id.T)
     return distance_matrix
 
-def load_d2_distances(stations: pd.DataFrame) -> np.ndarray:
+def load_d2_distances(stations: pd.DataFrame, train_set: pd.DataFrame) -> np.ndarray:
     if os.path.exists("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy"):
         print("[INFO] Loading distances from file...")
         mat = np.load("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy")
     else:
         print("[INFO] Computing distances...")
-        mat = compute_d2_matrix(stations)
+        mat = compute_d2_matrix(stations, train_set)
         np.save("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy", mat)
     return mat
 
@@ -109,34 +108,34 @@ def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set) -> np
     mat = mat_d2 + mat_d3
     return mat
 
-def compute_mat(df: pd.DataFrame, mode: str, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None) -> np.array:
+def compute_mat(station_df: pd.DataFrame, mode: str, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None) -> np.array:
     if mode == "geo":
-        lon = np.array(df["lon"].copy())
-        lat = np.array(df["lat"].copy())
+        lon = np.array(station_df["lon"].copy())
+        lat = np.array(station_df["lat"].copy())
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         distance_matrix = np.vectorize(dist_km)(lat_mesh, lon_mesh, lat_mesh.T, lon_mesh.T)
     if mode == "alt":
-        altitude = np.array(df["altitude"].copy())
+        altitude = np.array(station_df["altitude"].copy())
         mesh1, mesh2 = np.meshgrid(altitude, altitude)
         distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2) # zwei vektoren voneinander abziehen
     if mode == "alt-orog":
-        altorog = np.array((df['altitude']-df['orog']).copy())
+        altorog = np.array((station_df['altitude']-station_df['orog']).copy())
         mesh1, mesh2 = np.meshgrid(altorog, altorog)
         distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2)
     if mode == "lon":
-        lon = np.array(df["lon"].copy())
+        lon = np.array(station_df["lon"].copy())
         mesh1, mesh2 = np.meshgrid(lon, lon)
         distance_matrix = np.vectorize(signed_geodesic_km)(lon1 =mesh1, lon2=mesh2)
     if mode == "lat":
-        lat = np.array(df["lat"].copy())
+        lat = np.array(station_df["lat"].copy())
         mesh1, mesh2 = np.meshgrid(lat, lat) # check if this meshgrid actually works!!
         distance_matrix = np.vectorize(signed_geodesic_km)(lat1=mesh1, lat2=mesh2) # vorzeichen!
     if mode == "dist2":
-        distance_matrix = load_d2_distances(df)
+        distance_matrix = load_d2_distances(station_df, train_set)
     if mode == "dist3":
-        distance_matrix = load_d3_distances(df, train_set, train_target_set)
+        distance_matrix = load_d3_distances(station_df, train_set, train_target_set)
     if mode == "dist4":
-        distance_matrix = load_d4_distances(df, train_set, train_target_set)
+        distance_matrix = load_d4_distances(station_df, train_set, train_target_set)
     return distance_matrix
 
 def get_adj(dist_matrix_sliced: np.array, max_dist: float = 50) -> np.array:
@@ -147,16 +146,22 @@ def get_adj(dist_matrix_sliced: np.array, max_dist: float = 50) -> np.array:
     mask = np.logical_and(mask, diagonal)
     return mask
 
-# def create_graph(attributes: list, edges: list, date: str, ensemble: int, summary_stats: bool = False): # generic create_graph function
-# list of tubles (attribute name & max)
+def create_graph_data(
+        df_train: Tuple[pd.DataFrame],
+        date: str,
+        ensemble: int,
+        sum_stats: bool = False):
+    day = df_train[0][df_train[0].time == date]
+    if sum_stats:
+        ens = day #?
+    else:
+        ens = day[day.number == ensemble] # only if sum_stats = False
 
-def create_graph_data(date: str, ensemble: int, sum_stats: bool = False):
-    day = df[df.time == date]
-    ens = day[day.number == ensemble] # only if sum_stats = Fals
     ens = ens.drop(columns=["time", "number"])
     x = torch.tensor(ens.to_numpy(dtype=np.float32))
+    df_target = df_train[1]
 
-    target = df_target[df_target.time == date]
+    target = df_target[df_target.time == date] # wo kommt df_target her??
     target = target.drop(columns=["time", "station_id"]).to_numpy()
     y = torch.tensor(target)
 
@@ -164,23 +169,32 @@ def create_graph_data(date: str, ensemble: int, sum_stats: bool = False):
     # print(lon.shape)
     lat = ens["station_latitude"].to_numpy().reshape(-1, 1)
     # print(lat.shape)
-    pos = np.concatenate([lon, lat], axis=1).reshape(-1, 2)
-    pos_dict = dict(enumerate(pos))
+    position = np.concatenate([lon, lat], axis=1).reshape(-1, 2)
+    # print(position.shape)
+    # pos_dict = dict(enumerate(position))
 
-    return x, y, pos_dict, (lon, lat)
+    return x, y, position
 
-def create_graph(attributes: list, edges: list, date: str, ensemble: int, sum_stats: bool = False):
-    x, y, pos_dict, (lon, lat) = create_graph_data(date, ensemble, sum_stats)
+def create_graph_dataset(
+        df_train: pd.DataFrame,
+        df_target: pd.DataFrame,
+        station_df: pd.DataFrame,
+        attributes: list,
+        edges: list,
+        ensemble: int,
+        sum_stats: bool = False):
+    assert (not ((ensemble == None) and (sum_stats == False))), "Input either ensemble member number or sum_stats=True"
+
     # assert all elements in edges exist in attributes!
     first_el = [t[0] for t in edges]
-    assert set(attributes).issuperset(set(first_el)), "edges are created based on attributes."
+    assert set(attributes).issuperset(set(first_el)), "Edges must be created based on attributes that exist."
 
     # attribute tensor creation
     t_dim = len(attributes)
     attr_tensor = torch.empty((122, 122, t_dim), dtype=torch.float32)
     for i, list_element in enumerate(attributes):
         # compute distance matrix
-        attr_tensor[:,:,i] = torch.tensor(compute_mat(dfs['stations'], list_element))
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element))
 
     attr_mask = torch.empty(122, 122, len(edges))
     for i, el in enumerate(edges):
@@ -198,8 +212,97 @@ def create_graph(attributes: list, edges: list, date: str, ensemble: int, sum_st
     max_edge_attr = g_edge_attr.max(dim=0).values
     std_g_edge_attr = g_edge_attr / max_edge_attr
 
-    graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=date, y=y)
-    return graph, pos_dict
+    n_nodes = len(df_train.station_id.unique())
+    n_fc = len(df_train.number.unique())
+
+    graphs = []
+    for time in tqdm(df_train.time.unique()):
+        x, y, position = create_graph_data((df_train, df_target), time, ensemble, sum_stats) # date raus!
+        graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=time, y=y, pos=position, n_idx=torch.arange(n_nodes).repeat(n_fc))
+        graphs.append(graph)
+
+    return graphs
+
+def normalize_features(data: List[Tuple[pd.DataFrame]]):
+    print("[INFO] Normalizing features...")
+    train_rf = data[0][0]
+    features_to_normalize = [col for col in train_rf.columns if col not in ["station_id", "time", "number"]]
+
+    # Create a MinMaxScaler object
+    scaler = StandardScaler()
+
+    # Fit and transform the selected features
+    for i, (features, targets) in enumerate(data):
+        if i == 0:
+            features.loc[:, features_to_normalize] = scaler.fit_transform(features[features_to_normalize]).astype("float32")
+            print("fit_transform")
+        else:
+
+            features.loc[:, features_to_normalize] = scaler.transform(features[features_to_normalize]).astype("float32")
+            print(f"transform {i}")
+        features.loc[:, ["cos_doy"]] = np.cos(2 * np.pi * features["time"].dt.dayofyear / 365)
+        features.loc[:, ["sin_doy"]] = np.sin(2 * np.pi * features["time"].dt.dayofyear / 365)
+    return data
+
+def temp_conversion(data: List[Tuple[pd.DataFrame]]):
+    print("[INFO] Converting temperature values...")
+    for _, targets in data:
+        targets.loc[:, ["t2m"]] = targets.loc[:, ["t2m"]] - 273.15
+    return data
+
+def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df: pd.DataFrame, attributes: list, edges: list, date: str, ensemble: int, sum_stats: bool = False):
+    '''
+    FOR PLOTTING
+    '''
+    x, y, position = create_graph_data((df_train, df_target), date, ensemble, sum_stats)
+    # assert all elements in edges exist in attributes!
+    first_el = [t[0] for t in edges]
+    assert set(attributes).issuperset(set(first_el)), "Edges must be created based on attributes that exist."
+
+    # attribute tensor creation
+    t_dim = len(attributes)
+    attr_tensor = torch.empty((122, 122, t_dim), dtype=torch.float32)
+    for i, list_element in enumerate(attributes):
+        # compute distance matrix
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element))
+
+    attr_mask = torch.empty(122, 122, len(edges))
+    for i, el in enumerate(edges):
+        attr, max_value = el
+        # position von attr in der attribute liste => welche distance matrix in tensor
+        pos = attributes.index(attr)
+        attr_mask[:,:,i] = get_adj(attr_tensor[:, :, pos], max_dist=max_value)
+
+    g_adj = attr_mask.any(dim=2)
+    g_edges = np.array(np.argwhere(g_adj))
+    g_edge_idx = torch.tensor(g_edges.T)
+    g_edge_attr = attr_tensor[g_adj]
+
+    # standardization
+    max_edge_attr = g_edge_attr.max(dim=0).values
+    std_g_edge_attr = g_edge_attr / max_edge_attr
+
+    n_nodes = len(df_train.station_id.unique())
+    n_fc = len(df_train.number.unique())
+
+    graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=date, y=y, pos=position, n_idx=torch.arange(n_nodes).repeat(n_fc))
+    return graph
+
+def normalize_features_and_create_graphs1(df_train: Tuple[pd.DataFrame], df_valid_test: List[Tuple[pd.DataFrame]], station_df: pd.DataFrame, attributes: list, edges: list, ensemble: int=None, sum_stats: bool = False):
+
+    list = [df_train] + df_valid_test
+    list = normalize_features(list)
+    dfs = temp_conversion(list)
+    # print(type(dfs))
+    test_valid = []
+    for i, (features, targets) in enumerate(dfs):
+        if i == 0:
+            graphs_train_rf = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats)
+
+        else:
+            graphs_valid_test = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats)
+            test_valid.append(graphs_valid_test)
+    return graphs_train_rf, test_valid
 
 def facts_about(graph):
     n_nodes = graph.num_nodes

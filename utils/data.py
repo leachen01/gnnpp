@@ -61,6 +61,7 @@ class ZarrLoader:
             }
         )
         stations = stations.sort_values("station_id").reset_index(drop=True)
+        print("test")
         return stations
 
     def load_raw_data(self) ->  Tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
@@ -797,7 +798,7 @@ def create_multigraph(df, df_target, distances, max_dist):
         List[torch_geometric.data.Data]: List of graphs with features and targets
     """
     n_nodes = len(df.station_id.unique())  # number of nodes
-    n_fc = len(df.number.unique())  # number of ensembe members
+    n_fc = len(df.number.unique())  # number of ensemble members
     df = df.drop(columns=["number"])
 
     # Create set of edges ######################################################################
