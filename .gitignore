@@ -173,3 +173,4 @@ cython_debug/
 #.idea/
 # explored_models/gnn_24h/models/run_24h.ckpt
 /explored_models/gnn_24h/
+/explored_models/gnn_new_attr_24h
