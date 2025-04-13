@@ -31,7 +31,7 @@ class DeepSetAggregator(torch.nn.Module):
 
 
 class ResGnn(torch.nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, num_layers: int, hidden_channels: int, heads: int):
+    def __init__(self, in_channels: int, out_channels: int, num_layers: int, hidden_channels: int, heads: int): # Added
         super(ResGnn, self).__init__()
         assert num_layers > 0, "num_layers must be > 0."
 
@@ -39,7 +39,7 @@ class ResGnn(torch.nn.Module):
         self.convolutions = ModuleList()
         for _ in range(num_layers):
             self.convolutions.append(
-                GATv2Conv(-1, hidden_channels, heads=heads, edge_dim=1, add_self_loops=True, fill_value=0.01)
+                GATv2Conv(-1, hidden_channels, heads=heads, edge_dim=1, add_self_loops=True, fill_value=0.01) # Added
             )
         self.lin = Linear(hidden_channels * heads, out_channels)
         self.relu = ReLU()
@@ -109,6 +109,7 @@ class Multigraph(L.LightningModule):
     def __init__(
         self,
         embedding_dim,
+        # edge_dim, # Added
         in_channels,
         hidden_channels_gnn,
         out_channels_gnn,
@@ -123,6 +124,7 @@ class Multigraph(L.LightningModule):
         self.encoder = EmbedStations(num_stations_max=122, embedding_dim=embedding_dim)
 
         self.conv = ResGnn(
+            # edge_dim=edge_dim, # Added
             in_channels=in_channels,
             hidden_channels=hidden_channels_gnn,
             out_channels=out_channels_gnn,

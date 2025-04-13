@@ -250,7 +250,7 @@ def temp_conversion(data: List[Tuple[pd.DataFrame]]):
         targets.loc[:, ["t2m"]] = targets.loc[:, ["t2m"]] - 273.15
     return data
 
-def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df: pd.DataFrame, attributes: list, edges: list, date: str, ensemble: int, sum_stats: bool = False):
+def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df: pd.DataFrame, attributes: list, edges: list, date: str, ensemble: int = None, sum_stats: bool = False):
     '''
     FOR PLOTTING
     '''
