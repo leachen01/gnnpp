@@ -7,7 +7,7 @@ from utils.data import load_dataframes, load_distances, normalize_features_and_c
 
 def main():
     # !! still haven't loaded 72h and 120h
-    dataframes = load_dataframes(mode="train", leadtime="120h")
+    dataframes = load_dataframes(mode="train", leadtime="24h")
     #(train_rf, train_rf_target) = dataframes["train"]
     #(test_rf, test_rf_target) = dataframes["test_rf"]
     #(test_f, test_f_target) = dataframes["test_f"]
