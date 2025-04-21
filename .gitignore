@@ -175,3 +175,6 @@ cython_debug/
 /explored_models/gnn_24h/
 /explored_models/gnn_new_attr_24h/
 /explored_models/gnn_run3/
+/leas_final_models/
+/gnn_run3/
+/gnn_run3p7/
