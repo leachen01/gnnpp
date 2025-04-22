@@ -1,3 +1,3 @@
 Data: f
 Leadtime: 24h
-Final crps: 0.6999879884438922
+Final crps: 0.6755105734340946

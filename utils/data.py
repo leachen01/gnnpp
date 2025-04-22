@@ -641,6 +641,7 @@ def split_graph(graph) -> List[torch_geometric.data.Data]:
         set4,
         set5,
     ]  # Each set contains a list of station indices corresponding to 10 (or 11) ensemble members
+
     graphs = []
     for s in sets:
         graphs.append(graph.subgraph(s.flatten()))
