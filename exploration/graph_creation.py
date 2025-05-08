@@ -1,14 +1,13 @@
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
-import torch_geometric.datasets as datasets
-import torch_geometric.data as data
-import torch_geometric.transforms as transforms
-import networkx as nx
-from torch_geometric.utils import to_networkx
+# import numpy as np
+# import torch
+# import matplotlib.pyplot as plt
+# import torch_geometric.datasets as datasets
+# import torch_geometric.data as data
+# import torch_geometric.transforms as transforms
+# import networkx as nx
+# from torch_geometric.utils import to_networkx
 from scipy.interpolate import interp1d
 from utils.data import *
-from utils.plot import plot_map
 from torch_geometric.utils import is_undirected, degree, contains_isolated_nodes
 from tqdm import tqdm
 
@@ -42,7 +41,7 @@ def dist2(i_id, j_id, train_set, sum_stats):
     F_i = create_emp_cdf(i_train_temps)
     F_j = create_emp_cdf(j_train_temps)
     sum = 0
-    S = np.arange(train_set[t2m].min(), train_set['t2m'].max(), 1)
+    S = np.arange(train_set[t2m].min(), train_set[t2m].max(), 1)
     for x in S:
         sum += abs(F_i(x) - F_j(x))
     d2 = sum * 1/S.shape[0]
@@ -88,7 +87,8 @@ def dist3(i_id, j_id, cdfs):
 def compute_d3_matrix(stations: pd.DataFrame, train_set, train_target_set, sum_stats) -> np.array:
     station_id = np.array(stations.index).reshape(-1, 1)
     cdfs = []
-    for i_id in range(0, 122):
+    num_stations = len(train_set.station_id.unique())
+    for i_id in range(0, num_stations):
         i_train = train_set[train_set['station_id'] == i_id]
         i_target_temps = train_target_set[train_target_set['station_id'] == i_id]['t2m']
         G_s = create_emp_cdf_of_errors(i_train, i_target_temps, sum_stats)
@@ -197,12 +197,13 @@ def create_graph_dataset(
 
     # attribute tensor creation
     t_dim = len(attributes)
-    attr_tensor = torch.empty((122, 122, t_dim), dtype=torch.float32)
+    num_stations = len(df_train.station_id.unique())
+    attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
     for i, list_element in enumerate(attributes):
         # compute distance matrix
         attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats))
 
-    attr_mask = torch.empty(122, 122, len(edges))
+    attr_mask = torch.empty(num_stations, num_stations, len(edges))
     for i, el in enumerate(edges):
         attr, max_value = el
         # position von attr in der attribute liste => welche distance matrix in tensor
@@ -264,12 +265,13 @@ def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df
 
     # attribute tensor creation
     t_dim = len(attributes)
-    attr_tensor = torch.empty((122, 122, t_dim), dtype=torch.float32)
+    num_stations = len(df_train.station_id.unique())
+    attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
     for i, list_element in enumerate(attributes):
         # compute distance matrix
         attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats))
 
-    attr_mask = torch.empty(122, 122, len(edges))
+    attr_mask = torch.empty(num_stations, num_stations, len(edges))
     for i, el in enumerate(edges):
         attr, max_value = el
         # position von attr in der attribute liste => welche distance matrix in tensor

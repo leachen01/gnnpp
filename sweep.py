@@ -8,7 +8,7 @@ from pytorch_lightning.loggers import WandbLogger
 from torch_geometric.loader import DataLoader
 from torch.optim import AdamW
 from utils.data import (
-    load_dataframes,
+    load_dataframes_old,
     load_distances,
     normalize_features_and_create_graphs,
     rm_edges,
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         print("[INFO] Starting sweep with config: ", config)
 
         # Load Data #####################################################################
-        dataframes = load_dataframes(mode="hyperopt", leadtime=config.leadtime)
+        dataframes = load_dataframes_old(mode="hyperopt", leadtime=config.leadtime)
         if hasattr(config, "only_summary"):
             if config.only_summary is True or config.only_summary == "True":
                 print("[INFO] Only using summary statistics...")

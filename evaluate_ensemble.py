@@ -3,7 +3,7 @@ import json
 import numpy as np
 import os
 import pandas as pd
-import lightning as L
+import pytorch_lightning as L
 import torch
 import torch_geometric
 
@@ -12,7 +12,7 @@ from models.graphensemble.multigraph import Multigraph
 from torch_geometric.loader import DataLoader
 from torch.optim import AdamW
 from utils.data import (
-    load_dataframes,
+    load_dataframes_old,
     load_distances,
     normalize_features_and_create_graphs,
     split_graph,
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     print("[INFO] Starting eval with config: ", args_dict)
 
     # Load Data ######################################################################
-    dataframes = load_dataframes(mode="eval", leadtime=args.leadtime)
+    dataframes = load_dataframes_old(mode="eval", leadtime=args.leadtime)
     # Only Summary ###################################################################
     only_summary = False
     if hasattr(config, "only_summary"):
@@ -105,6 +105,8 @@ if __name__ == "__main__":
             checkpoint = torch.load(os.path.join(FOLDER, path))
 
             multigraph = Multigraph(
+                num_nodes=graphs_test_f[0].num_nodes,
+                edge_dim=1,
                 embedding_dim=emb_dim,
                 in_channels=in_channels,
                 hidden_channels_gnn=config.gnn_hidden,
@@ -115,17 +117,17 @@ if __name__ == "__main__":
                 optimizer_class=AdamW,
                 optimizer_params=dict(lr=config.lr),
             )
-            torch_geometric.compile(multigraph)
+            # torch_geometric.compile(multigraph)
 
             # run a dummy forward pass to initialize the model
             batch = next(iter(train_loader))
             batch = batch  # .to("cuda")
-            multigraph  # .to("cuda")
+            #multigraph  # .to("cuda")
             multigraph.forward(batch)
 
             multigraph.load_state_dict(checkpoint["state_dict"])
 
-            trainer = L.Trainer(log_every_n_steps=1, accelerator="gpu", devices=1, enable_progress_bar=True)
+            trainer = L.Trainer(log_every_n_steps=1, accelerator="gpu", devices=[1], enable_progress_bar=True)
 
             preds = trainer.predict(model=multigraph, dataloaders=[test_loader])
 

@@ -108,6 +108,7 @@ class ResGnn(torch.nn.Module):
 class Multigraph(L.LightningModule):
     def __init__(
         self,
+        num_nodes,
         embedding_dim,
         edge_dim, # Added
         in_channels,
@@ -120,8 +121,9 @@ class Multigraph(L.LightningModule):
         optimizer_params,
     ):
         super(Multigraph, self).__init__()
+        self.num_nodes = num_nodes
 
-        self.encoder = EmbedStations(num_stations_max=122, embedding_dim=embedding_dim)
+        self.encoder = EmbedStations(num_stations_max=num_nodes, embedding_dim=embedding_dim)
 
         self.conv = ResGnn(
             edge_dim=edge_dim, # Added
@@ -144,7 +146,8 @@ class Multigraph(L.LightningModule):
 
     def forward(self, data):
         x, edge_index, edge_attr, batch_id, node_idx = data.x, data.edge_index, data.edge_attr, data.batch, data.n_idx
-        node_idx = node_idx + batch_id * 122  # add batch_id to node_idx to get unique node indices
+        # node_idx = node_idx + batch_id * 122  # add batch_id to node_idx to get unique node indices
+        node_idx = node_idx + batch_id * self.num_nodes
         x = self.encoder(x)
         x = self.conv(x, edge_index, edge_attr)
         x = self.aggr(x, node_idx)
@@ -177,3 +180,4 @@ class Multigraph(L.LightningModule):
     def initialize(self, dataloader):
         batch = next(iter(dataloader))
         self.validation_step(batch, 0)
+

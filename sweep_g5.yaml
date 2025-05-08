@@ -1,0 +1,19 @@
+program: exploration/sweeps/sweep_g5.py
+
+# name: sweep_g5
+method: grid
+metric:
+  name: val_loss
+  goal: minimize
+
+parameters:
+  optimizer:
+    value: adam
+  gnn_hidden:
+    values: [64, 128, 265]
+  gnn_layers:
+    values: [1, 2]
+  heads:
+    value: 8
+  lr:
+    values: [0.0001, 0.0002, 0.0005, 0.001]

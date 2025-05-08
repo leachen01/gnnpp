@@ -29,7 +29,7 @@ class EmbedStations(nn.Module):
             torch.Tensor: The output tensor after embedding the station IDs.
 
         """
-        station_ids = x[..., 0].long()
+        station_ids = x[..., 0].long() # shape [960] = 120*8
         emb_station = self.embed(station_ids)
         x = torch.cat(
             (emb_station, x[..., 1:]), dim=-1

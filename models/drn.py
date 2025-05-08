@@ -15,7 +15,7 @@ class DRN(L.LightningModule):
         self.optimizer_class = optimizer_class
         self.optimizer_params = optimizer_params
 
-        self.embedding = EmbedStations(num_stations_max=122, embedding_dim=embedding_dim)
+        self.embedding = EmbedStations(num_stations_max=120, embedding_dim=embedding_dim)
 
         self.linear = nn.ModuleList()
         for hidden_size in self.hidden_channels:
@@ -29,14 +29,14 @@ class DRN(L.LightningModule):
         self.loss_fn = NormalCRPS()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(x.shape)
+        # print(x.shape)
         x = self.embedding(x)
-        print(x.shape)
+        # print(x.shape)
         for layer in self.linear:
             x = layer(x)
-            print(x.shape)
+            # print(x.shape)
             x = self.relu(x)
-            print(x.shape)
+            # print(x.shape)
         mu = self.last_linear_mu(x)  # Last Layer without ReLU
         sigma = self.softplus(self.last_linear_sigma(x))
         res = torch.cat([mu, sigma], dim=1)

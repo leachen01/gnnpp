@@ -11,6 +11,10 @@ from sklearn.preprocessing import StandardScaler
 from torch_geometric.data import Data
 from typing import DefaultDict, Tuple, List, Union
 
+from scipy.interpolate import interp1d
+from torch_geometric.utils import is_undirected, degree, contains_isolated_nodes
+from tqdm import tqdm
+
 
 class ZarrLoader:
     """
@@ -61,87 +65,86 @@ class ZarrLoader:
             }
         )
         stations = stations.sort_values("station_id").reset_index(drop=True)
-        print("test")
         return stations
 
-    def load_raw_data(self) ->  Tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
-        ZARRDATAFOLDER = '/mnt/sda/Data2/gnnpp-data/EUPPBench-stations/'
-        print(f"[INFO] Loading training data (1997-2013)")
-        xr_train = xr.open_zarr(f'{ZARRDATAFOLDER}train.zarr')
-        xr_train_targets = xr.open_zarr(f'{ZARRDATAFOLDER}train_targets.zarr')
-
-        # Forecasts
-        print(f"[INFO] Loading data for forecasts (2017-2018)")
-        xr_forecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_f.zarr')
-        xr_targets_f = xr.open_zarr(f'{ZARRDATAFOLDER}test_f_targets.zarr')
-
-        # Reforecasts
-        print(f"[INFO] Loading data for reforecasts (2014-2017)")
-        xr_reforecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf.zarr')
-        xr_targets_rf = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf_targets.zarr')
-
-        df_train = (
-            xr_train.to_dataframe()
-            #.reorder_levels(["time", "number", "station_id"])
-            .sort_index(level=["time", "number", "station_id"])
-            .reset_index()
-        )
-
-        print("df_train loaded")
-        df_train_target = (
-            xr_train_targets.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
-            .to_dataframe()
-            #.reorder_levels(["time", "station_id"])
-            .sort_index(level=["time", "station_id"])
-            .reset_index()
-        )
-        print("df_train_targets loaded")
-        df_f = (
-            xr_forecasts.to_dataframe()
-            #.reorder_levels(["time", "number", "station_id"])
-            .sort_index(level=["time", "number", "station_id"])
-            .reset_index()
-        )
-        print("df_f loaded")
-        df_f_target = (
-            xr_targets_f.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
-            .to_dataframe()
-            #.reorder_levels(["time", "station_id"])
-            .sort_index(level=["time", "station_id"])
-            .reset_index()
-        )
-
-        print(f"df_f_targets {df_f_target.columns}")
-
-        df_rf = (
-            xr_reforecasts.to_dataframe()
-            #.reorder_levels(["time", "number", "station_id"])
-            .sort_index(level=["time", "number", "station_id"])
-            .reset_index()
-        )
-
-        print(f"df_rf{df_rf.columns}")
-        df_rf_target = (
-            xr_targets_rf.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
-            .to_dataframe()
-            #.reorder_levels(["time", "station_id"])
-            .sort_index(level=["time", "station_id"])
-            .reset_index()
-        )
-
-        print("df_rf_targets loaded")
-
-        station_ids = df_f.station_id.unique()
-        id_to_index = {station_id: i for i, station_id in enumerate(station_ids)}
-
-        df_train["station_id"] = df_train["station_id"].apply(lambda x: id_to_index[x])
-        df_train_target["station_id"] = df_train_target["station_id"].apply(lambda x: id_to_index[x])
-        df_f["station_id"] = df_f["station_id"].apply(lambda x: id_to_index[x])
-        df_f_target["station_id"] = df_f_target["station_id"].apply(lambda x: id_to_index[x])
-        df_rf["station_id"] = df_rf["station_id"].apply(lambda x: id_to_index[x])
-        df_rf_target["station_id"] = df_rf_target["station_id"].apply(lambda x: id_to_index[x])
-
-        return df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target
+    # def load_raw_data(self) ->  Tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
+    #     ZARRDATAFOLDER = '/mnt/sda/Data2/gnnpp-data/EUPPBench-stations/'
+    #     print(f"[INFO] Loading training data (1997-2013)")
+    #     xr_train = xr.open_zarr(f'{ZARRDATAFOLDER}train.zarr')
+    #     xr_train_targets = xr.open_zarr(f'{ZARRDATAFOLDER}train_targets.zarr')
+    #
+    #     # Forecasts
+    #     print(f"[INFO] Loading data for forecasts (2017-2018)")
+    #     xr_forecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_f.zarr')
+    #     xr_targets_f = xr.open_zarr(f'{ZARRDATAFOLDER}test_f_targets.zarr')
+    #
+    #     # Reforecasts
+    #     print(f"[INFO] Loading data for reforecasts (2014-2017)")
+    #     xr_reforecasts = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf.zarr')
+    #     xr_targets_rf = xr.open_zarr(f'{ZARRDATAFOLDER}test_rf_targets.zarr')
+    #
+    #     df_train = (
+    #         xr_train.to_dataframe()
+    #         #.reorder_levels(["time", "number", "station_id"])
+    #         .sort_index(level=["time", "number", "station_id"])
+    #         .reset_index()
+    #     )
+    #
+    #     print("df_train loaded")
+    #     df_train_target = (
+    #         xr_train_targets.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+    #         .to_dataframe()
+    #         #.reorder_levels(["time", "station_id"])
+    #         .sort_index(level=["time", "station_id"])
+    #         .reset_index()
+    #     )
+    #     print("df_train_targets loaded")
+    #     df_f = (
+    #         xr_forecasts.to_dataframe()
+    #         #.reorder_levels(["time", "number", "station_id"])
+    #         .sort_index(level=["time", "number", "station_id"])
+    #         .reset_index()
+    #     )
+    #     print("df_f loaded")
+    #     df_f_target = (
+    #         xr_targets_f.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+    #         .to_dataframe()
+    #         #.reorder_levels(["time", "station_id"])
+    #         .sort_index(level=["time", "station_id"])
+    #         .reset_index()
+    #     )
+    #
+    #     print(f"df_f_targets {df_f_target.columns}")
+    #
+    #     df_rf = (
+    #         xr_reforecasts.to_dataframe()
+    #         #.reorder_levels(["time", "number", "station_id"])
+    #         .sort_index(level=["time", "number", "station_id"])
+    #         .reset_index()
+    #     )
+    #
+    #     print(f"df_rf{df_rf.columns}")
+    #     df_rf_target = (
+    #         xr_targets_rf.t2m.drop_vars(["altitude", "land_usage", "latitude", "longitude", "station_name"])
+    #         .to_dataframe()
+    #         #.reorder_levels(["time", "station_id"])
+    #         .sort_index(level=["time", "station_id"])
+    #         .reset_index()
+    #     )
+    #
+    #     print("df_rf_targets loaded")
+    #
+    #     station_ids = df_f.station_id.unique()
+    #     id_to_index = {station_id: i for i, station_id in enumerate(station_ids)}
+    #
+    #     df_train["station_id"] = df_train["station_id"].apply(lambda x: id_to_index[x])
+    #     df_train_target["station_id"] = df_train_target["station_id"].apply(lambda x: id_to_index[x])
+    #     df_f["station_id"] = df_f["station_id"].apply(lambda x: id_to_index[x])
+    #     df_f_target["station_id"] = df_f_target["station_id"].apply(lambda x: id_to_index[x])
+    #     df_rf["station_id"] = df_rf["station_id"].apply(lambda x: id_to_index[x])
+    #     df_rf_target["station_id"] = df_rf_target["station_id"].apply(lambda x: id_to_index[x])
+    #
+    #     return df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target
 
 
     def load_data(
@@ -298,13 +301,44 @@ class ZarrLoader:
         df_rf["station_id"] = df_rf["station_id"].apply(lambda x: id_to_index[x])
         df_rf_target["station_id"] = df_rf_target["station_id"].apply(lambda x: id_to_index[x])
 
+        self.stations_train['station_id'] = self.stations_train['station_id'].apply(lambda x: id_to_index[x])
+        self.stations_f['station_id'] = self.stations_f['station_id'].apply(lambda x: id_to_index[x])
+        self.stations_rf['station_id'] = self.stations_rf['station_id'].apply(lambda x: id_to_index[x])
+
+        ### cut out stations 62 and 74 because of nan values #########################
+
+        df_train = df_train[~df_train['station_id'].isin([62, 74])].reset_index(drop=True)
+        df_train_target = df_train_target[~df_train_target['station_id'].isin([62, 74])].reset_index(drop=True)
+        df_rf = df_rf[~df_rf['station_id'].isin([62, 74])].reset_index(drop=True)
+        df_rf_target = df_rf_target[~df_rf_target['station_id'].isin([62, 74])].reset_index(drop=True)
+        df_f = df_f[~df_f['station_id'].isin([62, 74])].reset_index(drop=True)
+        df_f_target = df_f_target[~df_f_target['station_id'].isin([62, 74])].reset_index(drop=True)
+        self.stations_train = self.stations_train[~self.stations_train['station_id'].isin([62, 74])].reset_index(drop=True)
+        self.stations_f = self.stations_f[~self.stations_f['station_id'].isin([62, 74])].reset_index(drop=True)
+        self.stations_rf = self.stations_rf[~self.stations_rf['station_id'].isin([62, 74])].reset_index(drop=True)
+
+        ### reassign station ids ##################################################
+
+        station_ids = df_f.station_id.unique()
+        id_to_index = {station_id: i for i, station_id in enumerate(station_ids)}
+
+        df_train["station_id"] = df_train["station_id"].apply(lambda x: id_to_index[x])
+        df_train_target["station_id"] = df_train_target["station_id"].apply(lambda x: id_to_index[x])
+        df_f["station_id"] = df_f["station_id"].apply(lambda x: id_to_index[x])
+        df_f_target["station_id"] = df_f_target["station_id"].apply(lambda x: id_to_index[x])
+        df_rf["station_id"] = df_rf["station_id"].apply(lambda x: id_to_index[x])
+        df_rf_target["station_id"] = df_rf_target["station_id"].apply(lambda x: id_to_index[x])
+
+        self.stations_train['station_id'] = self.stations_train['station_id'].apply(lambda x: id_to_index[x])
+        self.stations_f['station_id'] = self.stations_f['station_id'].apply(lambda x: id_to_index[x])
+        self.stations_rf['station_id'] = self.stations_rf['station_id'].apply(lambda x: id_to_index[x])
+
         # Cut features #### But this puts it in the wrong order! => check again when used!!
         df_train = df_train[self.features]
         df_f = df_f[self.features]
         df_rf = df_rf[self.features]
 
         # df_train: (1997-2013), df_f: (2017-2018), df_rf: (2014-2017)
-
         return df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target
 
     def validate_stations(self):
@@ -313,8 +347,132 @@ class ZarrLoader:
         test3 = (self.stations_f.station_id == self.stations_train.station_id).all()
         return (test1 and test2 and test3)
 
-
 def load_dataframes(
+    leadtime: str,
+) -> DefaultDict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
+    """Load the dataframes for training, testing on reforecasts, and testing on forecasts either from Zarr
+    or as a pandas Dataframe. If the dataframes do not exist as pandas Dataframe,
+    they are created and saved to disk so future loading is faster.
+
+    Args:
+        mode (str): The mode of the script, can be "train", "eval", or "hyperopt".
+        leadtime (str): The leadtime of the predictions, can be "24h", "72h", or "120h".
+
+    Returns:
+        DefaultDict[str, Tuple[pd.DataFrame, pd.DataFrame]]: A dictionary containing the dataframes for
+        training, validation and testing.
+
+    """
+
+    # Load Data ######################################################################
+    DATA_FOLDER = f"/mnt/sda/Data2/gnnpp-data/dataframes_{leadtime}"
+    res = defaultdict(lambda: None)
+
+    DATA_FOLDER = os.path.join(DATA_FOLDER, "final_train")
+    # Training data
+    TRAIN_RF_PATH = os.path.join(DATA_FOLDER, "train_rf_final.pkl")
+    TRAIN_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "train_rf_target_final.pkl")
+
+    VALID_RF_PATH = os.path.join(DATA_FOLDER, "valid_rf_final.pkl")
+    VALID_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "valid_rf_target_final.pkl")
+    # Test on Reforceasts
+    TEST_RF_PATH = os.path.join(DATA_FOLDER, "test_rf_final.pkl")
+    TEST_RF_TARGET_PATH = os.path.join(DATA_FOLDER, "test_rf_target_final.pkl")
+    # Test on Forecasts
+    TEST_F_PATH = os.path.join(DATA_FOLDER, "test_f_final.pkl")
+    TEST_F_TARGET_PATH = os.path.join(DATA_FOLDER, "test_f_target_final.pkl")
+
+    STATIONS_PATH = os.path.join(DATA_FOLDER, "stations.pkl")
+
+    # Check if the files exist
+    if (os.path.exists(TRAIN_RF_PATH)
+        and os.path.exists(TRAIN_RF_TARGET_PATH)
+        and os.path.exists(VALID_RF_PATH)
+        and os.path.exists(VALID_RF_TARGET_PATH)
+        and os.path.exists(TEST_RF_PATH)
+        and os.path.exists(TEST_RF_TARGET_PATH)
+        and os.path.exists(TEST_F_PATH)
+        and os.path.exists(TEST_F_TARGET_PATH)
+        and os.path.exists(STATIONS_PATH)
+    ):
+
+        print("[INFO] Dataframes exist. Will load pandas dataframes.")
+        train_rf = pd.read_pickle(TRAIN_RF_PATH)
+        train_rf_target = pd.read_pickle(TRAIN_RF_TARGET_PATH)
+
+        valid_rf = pd.read_pickle(VALID_RF_PATH)
+        valid_rf_target = pd.read_pickle(VALID_RF_TARGET_PATH)
+
+        test_rf = pd.read_pickle(TEST_RF_PATH)
+        test_rf_target = pd.read_pickle(TEST_RF_TARGET_PATH)
+
+        test_f = pd.read_pickle(TEST_F_PATH)
+        test_f_target = pd.read_pickle(TEST_F_TARGET_PATH)
+
+        stations_f = pd.read_pickle(STATIONS_PATH)
+
+    else:
+
+
+        print("[INFO] Data files not found, will load from zarr.")
+        loader = ZarrLoader("mnt/sda/Data2/gnnpp-data/EUPPBench-stations")
+
+        print("[INFO] Loading data...")
+        df_train, df_train_target, df_f, df_f_target, df_rf, df_rf_target = loader.load_data(
+            leadtime=leadtime, features="all"
+        )
+        assert loader.validate_stations(), "Stations in forecasts and reforecasts do not match."
+        stations_f = loader.stations_f
+
+        # Split the data
+        # df_train: (1997-2013), df_f: (2017-2018), df_rf: (2014-2017)
+        # Test 2014-2017 # 4 years (forecasts)
+        # Test2 2014-15 # 2 years (reforecasts)
+        # Valid 2010-2013 # 4 years
+        # Train 1997-2009 # 13 years
+        train_cutoff = pd.Timestamp("2010-01-01")
+        valid_cutoff = pd.Timestamp("2014-01-01")
+
+        train_rf = df_train.loc[df_train["time"] < train_cutoff, :]
+        train_rf_target = df_train_target.loc[df_train_target["time"] < train_cutoff, :]
+
+        valid_rf = df_train.loc[(df_train["time"] >= train_cutoff) & (df_train["time"] < valid_cutoff), :]
+        valid_rf_target = df_train_target.loc[(df_train_target["time"] >= train_cutoff) & (df_train_target["time"] < valid_cutoff), :]
+
+        test_rf = df_rf.loc[(df_rf["time"] >= train_cutoff), :]
+        test_rf_target = df_rf_target.loc[(df_rf_target["time"] >= train_cutoff), :]
+
+        test_f = df_f
+        test_f_target = df_f_target
+
+        if not os.path.exists(DATA_FOLDER):
+            os.makedirs(DATA_FOLDER)
+        print("[INFO] Saving dataframes to disk...")
+        train_rf.to_pickle(TRAIN_RF_PATH)
+        train_rf_target.to_pickle(TRAIN_RF_TARGET_PATH)
+
+        valid_rf.to_pickle(VALID_RF_PATH)
+        valid_rf_target.to_pickle(VALID_RF_TARGET_PATH)
+
+        test_rf.to_pickle(TEST_RF_PATH)
+        test_rf_target.to_pickle(TEST_RF_TARGET_PATH)
+
+        test_f.to_pickle(TEST_F_PATH)
+        test_f_target.to_pickle(TEST_F_TARGET_PATH)
+
+        stations_f.to_pickle(STATIONS_PATH)
+
+    ######################################
+
+    res["train"] = (train_rf, train_rf_target)
+    res["valid"] = (valid_rf, valid_rf_target)
+    res["test_rf"] = (test_rf, test_rf_target)
+    res["test_f"] = (test_f, test_f_target)
+    res["stations"] = stations_f
+    return res
+
+
+def load_dataframes_old(
     mode: str,
     leadtime: str,
 ) -> DefaultDict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
@@ -412,6 +570,8 @@ def load_dataframes(
             test_f_target.to_pickle(TEST_F_TARGET_PATH)
 
             stations_f.to_pickle(STATIONS_PATH)
+
+        ######################################
 
         res["train"] = (train_rf, train_rf_target)
         res["test_rf"] = (test_rf, test_rf_target)
@@ -522,23 +682,23 @@ def load_distances(stations: pd.DataFrame) -> np.ndarray:
     return mat
 
 
-def dist_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Returns the distance between two stations in kilometers using the WGS-84 ellipsoid.
-
-    :param lat1: Latitude of the first station.
-    :type lat1: float
-    :param lat2: Latitude of the second station.
-    :type lat2: float
-    :param lon1: Longitude of the first station.
-    :type lon1: float
-    :param lon2: Longitude of the second station.
-    :type lon2: float
-
-    :return: The distance between the two stations in kilometers.
-    :rtype: float
-    """
-    return geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+# def dist_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+#     """
+#     Returns the distance between two stations in kilometers using the WGS-84 ellipsoid.
+#
+#     :param lat1: Latitude of the first station.
+#     :type lat1: float
+#     :param lat2: Latitude of the second station.
+#     :type lat2: float
+#     :param lon1: Longitude of the first station.
+#     :type lon1: float
+#     :param lon2: Longitude of the second station.
+#     :type lon2: float
+#
+#     :return: The distance between the two stations in kilometers.
+#     :rtype: float
+#     """
+#     return geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
 
 
 def compute_dist_matrix(df: pd.DataFrame) -> np.array:
@@ -855,3 +1015,317 @@ def create_multigraph(df, df_target, distances, max_dist):
         )
         graphs.append(pyg_data)
     return graphs
+
+################ added all my functions from graph_creation
+
+def signed_difference(x, y): # macht es Sinn signed difference zu benutzen?
+    return x - y
+
+def dist_km(lat1: float = 0, lon1: float = 0, lat2: float = 0, lon2: float = 0) -> float:
+    return geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+
+def signed_geodesic_km(lat1: float = 0, lon1: float = 0, lat2: float = 0, lon2: float = 0) -> float:
+    if lat1 > lat2 or lon1 > lon2:
+        dist = geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+    else:
+        dist = -1 * geopy.distance.geodesic((lat1, lon1), (lat2, lon2)).km
+    return dist
+
+def create_emp_cdf(station_temps):  # F_i(x)
+    data_sorted = np.sort(station_temps)
+    cdf = np.arange(len(data_sorted)) / len(data_sorted)
+    cdf_function = interp1d(data_sorted, cdf, kind='previous', bounds_error=False, fill_value=(0, 1))
+    return cdf_function
+
+def dist2(i_id, j_id, train_set, sum_stats):
+# def dist2(i_id, j_id):
+    # print(i_id, j_id)
+    t2m = 't2m'
+    if sum_stats:
+        t2m = 't2m_mean'
+    i_train_temps = train_set[train_set['station_id'] == i_id][t2m]
+    j_train_temps = train_set[train_set['station_id'] == j_id][t2m]
+    F_i = create_emp_cdf(i_train_temps)
+    F_j = create_emp_cdf(j_train_temps)
+    sum = 0
+    S = np.arange(train_set[t2m].min(), train_set[t2m].max(), 1)
+    for x in S:
+        sum += abs(F_i(x) - F_j(x))
+    d2 = sum * 1/S.shape[0]
+    return d2
+
+def compute_d2_matrix(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats: bool) -> np.array: # nochmal checken ob die funktion noch funktionert!!
+    station_id = np.array(stations.index).reshape(-1, 1)
+    # print(station_id.shape)
+    # print(station_id.T.shape)
+    vectorized_dist2 = np.vectorize(dist2, excluded=[2])
+    distance_matrix = vectorized_dist2(station_id, station_id.T, train_set, sum_stats)
+    # distance_matrix = np.vectorize(dist2)(station_id, station_id.T)
+    return distance_matrix
+
+def load_d2_distances(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats: bool) -> np.ndarray:
+    if os.path.exists("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy"):
+        print("[INFO] Loading distances from file...")
+        mat = np.load("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy")
+    else:
+        print("[INFO] Computing distances...")
+        mat = compute_d2_matrix(stations, train_set, sum_stats)
+        np.save("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy", mat)
+    return mat
+
+def create_emp_cdf_of_errors(station_df, target_temp, sum_stats): # cdfs v
+    t2m = 't2m'
+    if sum_stats:
+        t2m = 't2m_mean'
+    f_bar = station_df.groupby(['time'])[t2m].mean()
+    def cdf_functions(z):
+        return (1/ station_df.nunique()['time']) * np.sum(f_bar.to_numpy() - target_temp.to_numpy() <= z)
+    return cdf_functions
+
+def dist3(i_id, j_id, cdfs):
+    print(i_id, j_id)
+    sum = 0
+    S = np.arange(-10, 10, 0.5)
+    for x in S:
+        sum += abs(cdfs[i_id](x) - cdfs[j_id](x))
+    d3 = sum * 1/S.shape[0]
+    return d3
+
+def compute_d3_matrix(stations: pd.DataFrame, train_set, train_target_set, sum_stats) -> np.array:
+    station_id = np.array(stations.index).reshape(-1, 1)
+    cdfs = []
+    num_stations = len(train_set.station_id.unique())
+    for i_id in range(0, num_stations):
+        i_train = train_set[train_set['station_id'] == i_id]
+        i_target_temps = train_target_set[train_target_set['station_id'] == i_id]['t2m']
+        G_s = create_emp_cdf_of_errors(i_train, i_target_temps, sum_stats)
+        cdfs.append(G_s)
+    print("[INFO] Cdfs created.")
+    vectorized_dist3 = np.vectorize(dist3, excluded=[2])
+    distance_matrix = vectorized_dist3(station_id, station_id.T, cdfs)
+    return distance_matrix
+
+def load_d3_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats: bool) -> np.ndarray:
+    if os.path.exists("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy"):
+        print("[INFO] Loading distances from file...")
+        mat = np.load("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy")
+    else:
+        print("[INFO] Computing distances...")
+        mat = compute_d3_matrix(stations, train_set, train_target_set, sum_stats)
+        np.save("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy", mat)
+    return mat
+
+def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats) -> np.ndarray:
+    mat_d2 = load_d2_distances(stations, train_set, sum_stats)
+    mat_d3 = load_d3_distances(stations, train_set, train_target_set, sum_stats)
+    mat = mat_d2 + mat_d3
+    return mat
+
+def compute_mat(station_df: pd.DataFrame, mode: str, sum_stats: bool = None, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None) -> np.array:
+    if mode == "geo":
+        lon = np.array(station_df["lon"].copy())
+        lat = np.array(station_df["lat"].copy())
+        lon_mesh, lat_mesh = np.meshgrid(lon, lat)
+        distance_matrix = np.vectorize(dist_km)(lat_mesh, lon_mesh, lat_mesh.T, lon_mesh.T)
+    if mode == "alt":
+        altitude = np.array(station_df["altitude"].copy())
+        mesh1, mesh2 = np.meshgrid(altitude, altitude)
+        distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2) # zwei vektoren voneinander abziehen
+    if mode == "alt-orog":
+        altorog = np.array((station_df['altitude']-station_df['orog']).copy())
+        mesh1, mesh2 = np.meshgrid(altorog, altorog)
+        distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2)
+    if mode == "lon":
+        lon = np.array(station_df["lon"].copy())
+        mesh1, mesh2 = np.meshgrid(lon, lon)
+        distance_matrix = np.vectorize(signed_geodesic_km)(lon1 =mesh1, lon2=mesh2)
+    if mode == "lat":
+        lat = np.array(station_df["lat"].copy())
+        mesh1, mesh2 = np.meshgrid(lat, lat) # check if this meshgrid actually works!!
+        distance_matrix = np.vectorize(signed_geodesic_km)(lat1=mesh1, lat2=mesh2) # vorzeichen!
+    if mode == "dist2":
+        distance_matrix = load_d2_distances(station_df, train_set, sum_stats)
+    if mode == "dist3":
+        distance_matrix = load_d3_distances(station_df, train_set, train_target_set, sum_stats)
+    if mode == "dist4":
+        distance_matrix = load_d4_distances(station_df, train_set, train_target_set, sum_stats)
+    return distance_matrix
+
+def get_adj(dist_matrix_sliced: np.array, max_dist: float = 50) -> np.array:
+    mask = None
+    mask = (dist_matrix_sliced <= max_dist) & (dist_matrix_sliced >= (-max_dist))
+    diagonal = np.full((mask.shape[0], mask.shape[1]), True, dtype=bool)
+    np.fill_diagonal(diagonal, False)
+    mask = np.logical_and(mask, diagonal)
+    return mask
+
+def create_graph_data(
+        df_train: Tuple[pd.DataFrame],
+        date: str,
+        ensemble: int = None,
+        sum_stats: bool = False):
+    day = df_train[0][df_train[0].time == date]
+    if sum_stats:
+        ens = day #?
+    else:
+        ens = day[day.number == ensemble] # only if sum_stats = False
+
+    ens = ens.drop(columns=["time", "number"])
+    x = torch.tensor(ens.to_numpy(dtype=np.float32))
+    df_target = df_train[1]
+
+    target = df_target[df_target.time == date]
+    target = target.drop(columns=["time", "station_id"]).to_numpy(dtype=np.float32) - 273.15
+    y = torch.tensor(target)
+    # y = torch.tensor(target)
+    lon = ens["station_longitude"].to_numpy().reshape(-1, 1)
+    # print(lon.shape)
+    lat = ens["station_latitude"].to_numpy().reshape(-1, 1)
+    # print(lat.shape)
+    position = np.concatenate([lon, lat], axis=1).reshape(-1, 2)
+    # print(position.shape)
+    # pos_dict = dict(enumerate(position))
+
+    return x, y.squeeze(-1), position
+
+def create_graph_dataset(
+        df_train: pd.DataFrame,
+        df_target: pd.DataFrame,
+        station_df: pd.DataFrame,
+        attributes: list,
+        edges: list,
+        ensemble: int = None,
+        sum_stats: bool = False):
+    assert (not ((ensemble == None) and (sum_stats == False))), "Input either ensemble member number or sum_stats=True"
+
+    # assert all elements in edges exist in attributes!
+    first_el = [t[0] for t in edges]
+    assert set(attributes).issuperset(set(first_el)), "Edges must be created based on attributes that exist."
+
+    # attribute tensor creation
+    t_dim = len(attributes)
+    num_stations = len(df_train.station_id.unique())
+    attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
+    for i, list_element in enumerate(attributes):
+        # compute distance matrix
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats))
+
+    attr_mask = torch.empty(num_stations, num_stations, len(edges))
+    for i, el in enumerate(edges):
+        attr, max_value = el
+        # position von attr in der attribute liste => welche distance matrix in tensor
+        pos = attributes.index(attr)
+        attr_mask[:,:,i] = get_adj(attr_tensor[:, :, pos], max_dist=max_value)
+
+    g_adj = attr_mask.any(dim=2)
+    g_edges = np.array(np.argwhere(g_adj))
+    g_edge_idx = torch.tensor(g_edges.T, dtype=torch.long)
+    g_edge_attr = attr_tensor[g_adj]
+
+    # standardization
+    max_edge_attr = g_edge_attr.max(dim=0).values
+    std_g_edge_attr = g_edge_attr / max_edge_attr
+
+    n_nodes = len(df_train.station_id.unique())
+    n_fc = len(df_train.number.unique())
+
+    graphs = []
+    for time in tqdm(df_train.time.unique()):
+        x, y, position = create_graph_data((df_train, df_target), time, ensemble, sum_stats) # date raus!
+        # graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=time, y=y, pos=position, n_idx=torch.arange(n_nodes).repeat(n_fc))
+        graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=time, y=y,
+                     n_idx=torch.arange(n_nodes).repeat(n_fc))
+        graphs.append(graph)
+
+    return graphs
+
+def normalize_features(data: List[Tuple[pd.DataFrame]]):
+    print("[INFO] Normalizing features...")
+    train_rf = data[0][0]
+    features_to_normalize = [col for col in train_rf.columns if col not in ["station_id", "time", "number"]]
+
+    # Create a MinMaxScaler object
+    scaler = StandardScaler()
+
+    # Fit and transform the selected features
+    for i, (features, targets) in enumerate(data):
+        if i == 0:
+            features.loc[:, features_to_normalize] = scaler.fit_transform(features[features_to_normalize]).astype("float32")
+            print("fit_transform")
+        else:
+
+            features.loc[:, features_to_normalize] = scaler.transform(features[features_to_normalize]).astype("float32")
+            print(f"transform {i}")
+        features.loc[:, ["cos_doy"]] = np.cos(2 * np.pi * features["time"].dt.dayofyear / 365)
+        features.loc[:, ["sin_doy"]] = np.sin(2 * np.pi * features["time"].dt.dayofyear / 365)
+    return data
+
+
+def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df: pd.DataFrame, attributes: list, edges: list, date: str, ensemble: int = None, sum_stats: bool = False):
+    '''
+    FOR PLOTTING
+    '''
+    x, y, position = create_graph_data((df_train, df_target), date, ensemble, sum_stats)
+    # assert all elements in edges exist in attributes!
+    first_el = [t[0] for t in edges]
+    assert set(attributes).issuperset(set(first_el)), "Edges must be created based on attributes that exist."
+
+    # attribute tensor creation
+    t_dim = len(attributes)
+    num_stations = len(df_train.station_id.unique())
+    attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
+    for i, list_element in enumerate(attributes):
+        # compute distance matrix
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats))
+
+    attr_mask = torch.empty(num_stations, num_stations, len(edges))
+    for i, el in enumerate(edges):
+        attr, max_value = el
+        # position von attr in der attribute liste => welche distance matrix in tensor
+        pos = attributes.index(attr)
+        attr_mask[:,:,i] = get_adj(attr_tensor[:, :, pos], max_dist=max_value)
+
+    g_adj = attr_mask.any(dim=2)
+    g_edges = np.array(np.argwhere(g_adj))
+    g_edge_idx = torch.tensor(g_edges.T)
+    g_edge_attr = attr_tensor[g_adj]
+
+    # standardization
+    max_edge_attr = g_edge_attr.max(dim=0).values
+    std_g_edge_attr = g_edge_attr / max_edge_attr
+
+    n_nodes = len(df_train.station_id.unique())
+    n_fc = len(df_train.number.unique())
+
+    graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=date, y=y, pos=position, n_idx=torch.arange(n_nodes).repeat(n_fc))
+    return graph
+
+def normalize_features_and_create_graphs1(df_train: Tuple[pd.DataFrame], df_valid_test: List[Tuple[pd.DataFrame]], station_df: pd.DataFrame, attributes: list, edges: list, ensemble: int=None, sum_stats: bool = False):
+
+    list = [df_train] + df_valid_test
+    dfs = normalize_features(list)
+    # dfs = temp_conversion(dfs)
+    test_valid = []
+
+    for i, (features, targets) in enumerate(dfs):
+        if i == 0:
+            graphs_train_rf = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats)
+
+        else:
+            graphs_valid_test = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats)
+            test_valid.append(graphs_valid_test)
+    return graphs_train_rf, test_valid
+
+def facts_about(graph):
+    n_nodes = graph.num_nodes
+    n_edges = graph.num_edges
+    node_degrees = degree(graph.edge_index[0], num_nodes=n_nodes)
+    avg_degree = node_degrees.mean().item()
+    n_isolated_nodes = (node_degrees == 0).sum().item()
+    feature_dim = graph.x.size(1)
+    edge_dim = graph.num_edge_features
+
+    print(f"Number of nodes: {n_nodes} with feature dimension of x: {feature_dim}")
+    print(f"Number of isolated nodes: {n_isolated_nodes}")
+    print(f"Number of edges: {n_edges} with edge dimension: {edge_dim}")
+    print(f"Average node degree: {avg_degree}")

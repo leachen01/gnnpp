@@ -1,3 +1,0 @@
-Data: f
-Leadtime: 24h
-Final crps: 0.644819088460565

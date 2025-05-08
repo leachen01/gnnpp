@@ -11,7 +11,7 @@ from pytorch_lightning.loggers import WandbLogger
 from torch_geometric.loader import DataLoader
 from torch.optim import AdamW
 from utils.data import (
-    load_dataframes,
+    load_dataframes_old,
     load_distances,
     normalize_features_and_create_graphs,
     rm_edges,
@@ -47,7 +47,7 @@ if __name__ == "__main__":
         print("[INFO] Starting sweep with config: ", config)
 
         # Load Data ######################################################################
-        dataframes = load_dataframes(mode="train", leadtime=args.leadtime)
+        dataframes = load_dataframes_old(mode="train", leadtime=args.leadtime)
         dist = load_distances(dataframes["stations"])
         # Only Summary ###################################################################
         if hasattr(config, "only_summary"):
@@ -78,6 +78,8 @@ if __name__ == "__main__":
         in_channels = graphs_train_rf[0].x.shape[1] + emb_dim - 1
 
         multigraph = Multigraph(
+            num_nodes=graphs_train_rf[0].num_nodes,
+            edge_dim=1,
             embedding_dim=emb_dim,
             in_channels=in_channels,
             hidden_channels_gnn=config.gnn_hidden,
@@ -107,7 +109,7 @@ if __name__ == "__main__":
             max_epochs=config.max_epochs,
             log_every_n_steps=1,
             accelerator="gpu",
-            devices=1,
+            devices=[1],
             enable_progress_bar=True,
             logger=wandb_logger,
             callbacks=checkpoint_callback,
