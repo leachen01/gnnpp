@@ -76,7 +76,7 @@ from exploration.get_graphs_and_data import *
 
 if __name__ == "__main__":
     graph_name = "g5"
-    leadtime = "24h"
+    leadtime = "72h"
     graphs5_train_rf, graphs5_valid_rf, graphs5_test_rf, graphs5_test_f  = get_train_valid_graph_data(leadtime=leadtime, graph_name=graph_name)
 
     g5_train_loader = DataLoader(graphs5_train_rf, batch_size=8, shuffle=True)
@@ -100,7 +100,6 @@ if __name__ == "__main__":
 
     with wandb.init():
         config = wandb.config
-        wandb.run.name = "sweep-xs2hi5ae_14_retry"
         print("[INFO] Starting sweep with config: ", config)
 
         multigraph = Multigraph(

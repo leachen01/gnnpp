@@ -78,7 +78,7 @@ def get_train_valid_graph_data(leadtime: str, graph_name: str):
         print("Precomputed data not found.")
 
     print("Preparing data from scratch...")
-    train_data, valid_data, test_rf, test_f = prepare_data(leadtime=leadtime, graph_name=graph_name,
+    train_data, valid_data, test_rf, test_f = prepare_graph_data(leadtime=leadtime, graph_name=graph_name,
                                                            path_list=path_list)
 
     return train_data, valid_data, test_rf, test_f

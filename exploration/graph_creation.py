@@ -56,14 +56,14 @@ def compute_d2_matrix(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats
     # distance_matrix = np.vectorize(dist2)(station_id, station_id.T)
     return distance_matrix
 
-def load_d2_distances(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats: bool) -> np.ndarray:
-    if os.path.exists("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy"):
+def load_d2_distances(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats: bool, leadtime: str) -> np.ndarray:
+    if os.path.exists(f"/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP_{leadtime}.npy"):
         print("[INFO] Loading distances from file...")
-        mat = np.load("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy")
+        mat = np.load(f"/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP_{leadtime}.npy")
     else:
         print("[INFO] Computing distances...")
         mat = compute_d2_matrix(stations, train_set, sum_stats)
-        np.save("/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP.npy", mat)
+        np.save(f"/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP_{leadtime}.npy", mat)
     return mat
 
 def create_emp_cdf_of_errors(station_df, target_temp, sum_stats): # cdfs v
@@ -98,14 +98,14 @@ def compute_d3_matrix(stations: pd.DataFrame, train_set, train_target_set, sum_s
     distance_matrix = vectorized_dist3(station_id, station_id.T, cdfs)
     return distance_matrix
 
-def load_d3_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats: bool) -> np.ndarray:
-    if os.path.exists("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy"):
+def load_d3_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats: bool, leadtime: str) -> np.ndarray:
+    if os.path.exists(f"/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP_{leadtime}.npy"):
         print("[INFO] Loading distances from file...")
-        mat = np.load("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy")
+        mat = np.load(f"/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP_{leadtime}.npy")
     else:
         print("[INFO] Computing distances...")
         mat = compute_d3_matrix(stations, train_set, train_target_set, sum_stats)
-        np.save("/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP.npy", mat)
+        np.save(f"/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP_{leadtime}.npy", mat)
     return mat
 
 def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats) -> np.ndarray:

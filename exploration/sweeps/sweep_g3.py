@@ -69,7 +69,7 @@ from exploration.get_graphs_and_data import *
 
 if __name__ == "__main__":
     graph_name = "g3"
-    leadtime = "72h"
+    leadtime = "120h"
     graphs3_train_rf, graphs3_valid_rf, graphs3_test_rf, graphs3_test_f  = get_train_valid_graph_data(leadtime=leadtime, graph_name=graph_name)
 
     g3_train_loader = DataLoader(graphs3_train_rf, batch_size=8, shuffle=True)
