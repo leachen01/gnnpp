@@ -63,7 +63,7 @@ def get_train_valid_graph_data(leadtime: str, graph_name: str):
 
     path_list = [train_path, valid_path, test_rf_path, test_f_path]
     if os.path.exists(train_path) and os.path.exists(valid_path):
-        print("Loading precomputed graph data...")
+        print(f"Loading precomputed graph data on {graph_name}...")
         try:
             train_data = torch.load(train_path)
             valid_data = torch.load(valid_path)
@@ -75,7 +75,7 @@ def get_train_valid_graph_data(leadtime: str, graph_name: str):
             print(f"Error loading precomputed data: {e}")
             print("Falling back to data preparation...")
     else:
-        print("Precomputed data not found.")
+        print(f"Precomputed data on {graph_name} not found.")
 
     print("Preparing data from scratch...")
     train_data, valid_data, test_rf, test_f = prepare_graph_data(leadtime=leadtime, graph_name=graph_name,
@@ -125,7 +125,8 @@ def prepare_graph_data(leadtime: str, graph_name: str, path_list: list):
                                                                          station_df=dataframes['stations'],
                                                                          attributes=["dist2", "dist3"],
                                                                          edges=[("dist2", 0.003), ("dist3", 0.0074)],
-                                                                         sum_stats=True)
+                                                                         sum_stats=True,
+                                                                         leadtime=leadtime)
     if graph_name == "g5":
         graphs_train_rf, tests = normalize_features_and_create_graphs1(df_train=dataframes['train'],
                                                                          df_valid_test=[dataframes['valid'],
@@ -137,7 +138,8 @@ def prepare_graph_data(leadtime: str, graph_name: str, path_list: list):
                                                                          edges=[("geo", 50), ("alt", 4),
                                                                                 ("alt-orog", 1.5), ("dist2", 0.003),
                                                                                 ("dist3", 0.0074)],
-                                                                         sum_stats=True)
+                                                                         sum_stats=True,
+                                                                         leadtime=leadtime)
     graphs_valid_rf, graphs_test_rf, graphs_test_f = tests
     os.makedirs(f'exploration/graphs/{leadtime}', exist_ok=True)
     torch.save(graphs_train_rf, path_list[0])

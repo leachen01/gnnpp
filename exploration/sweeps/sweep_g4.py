@@ -89,7 +89,7 @@ if __name__ == "__main__":
     num_nodes = graphs4_train_rf[0].num_nodes
     PROJECTNAME = "sweep_g4" # wandb sweep --project sweep_g4 sweep_g4.yaml
 
-    TRAINNAME = f"{graph_name}_{leadtime}_train_run1"
+    TRAINNAME = f"{graph_name}_{leadtime}_train_run"
 
     with wandb.init():
         config = wandb.config

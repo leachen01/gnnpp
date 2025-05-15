@@ -193,3 +193,9 @@ cython_debug/
 /leas_trained_models/sum_stats_24h/g5_24h/models/
 /leas_trained_models/sum_stats_72h/g1_72h/models/
 /leas_trained_models/sum_stats_24h/122g1_24h/models/
+/leas_trained_models/sum_stats_72h/g2_72h/models/
+/leas_trained_models/sum_stats_72h/g3_72h/models/
+/leas_trained_models/sum_stats_72h/g4_72h/models/
+/leas_trained_models/sum_stats_72h/g5_72h/models/
+/leas_trained_models/sum_stats_120h/g2_120h/models/
+/leas_trained_models/sum_stats_120h/g1_120h/models/

@@ -76,7 +76,7 @@ from exploration.get_graphs_and_data import *
 
 if __name__ == "__main__":
     graph_name = "g5"
-    leadtime = "72h"
+    leadtime = "120h"
     graphs5_train_rf, graphs5_valid_rf, graphs5_test_rf, graphs5_test_f  = get_train_valid_graph_data(leadtime=leadtime, graph_name=graph_name)
 
     g5_train_loader = DataLoader(graphs5_train_rf, batch_size=8, shuffle=True)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         # )
 
         trainer = L.Trainer(
-            max_epochs=100,
+            max_epochs=1000,
             log_every_n_steps=1,
             accelerator="gpu",
             devices=[0],

@@ -108,13 +108,13 @@ def load_d3_distances(stations: pd.DataFrame, train_set, train_target_set, sum_s
         np.save(f"/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP_{leadtime}.npy", mat)
     return mat
 
-def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats) -> np.ndarray:
-    mat_d2 = load_d2_distances(stations, train_set, sum_stats)
-    mat_d3 = load_d3_distances(stations, train_set, train_target_set, sum_stats)
+def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats, leadtime: str) -> np.ndarray:
+    mat_d2 = load_d2_distances(stations, train_set, sum_stats, leadtime=leadtime)
+    mat_d3 = load_d3_distances(stations, train_set, train_target_set, sum_stats, leadtime=leadtime)
     mat = mat_d2 + mat_d3
     return mat
 
-def compute_mat(station_df: pd.DataFrame, mode: str, sum_stats: bool = None, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None) -> np.array:
+def compute_mat(station_df: pd.DataFrame, mode: str, sum_stats: bool = None, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None, leadtime = None) -> np.array:
     if mode == "geo":
         lon = np.array(station_df["lon"].copy())
         lat = np.array(station_df["lat"].copy())
@@ -137,11 +137,11 @@ def compute_mat(station_df: pd.DataFrame, mode: str, sum_stats: bool = None, tra
         mesh1, mesh2 = np.meshgrid(lat, lat) # check if this meshgrid actually works!!
         distance_matrix = np.vectorize(signed_geodesic_km)(lat1=mesh1, lat2=mesh2) # vorzeichen!
     if mode == "dist2":
-        distance_matrix = load_d2_distances(station_df, train_set, sum_stats)
+        distance_matrix = load_d2_distances(station_df, train_set, sum_stats, leadtime=leadtime)
     if mode == "dist3":
-        distance_matrix = load_d3_distances(station_df, train_set, train_target_set, sum_stats)
+        distance_matrix = load_d3_distances(station_df, train_set, train_target_set, sum_stats = sum_stats, leadtime=leadtime)
     if mode == "dist4":
-        distance_matrix = load_d4_distances(station_df, train_set, train_target_set, sum_stats)
+        distance_matrix = load_d4_distances(station_df, train_set, train_target_set, sum_stats=sum_stats, leadtime=leadtime)
     return distance_matrix
 
 def get_adj(dist_matrix_sliced: np.array, max_dist: float = 50) -> np.array:
@@ -188,7 +188,8 @@ def create_graph_dataset(
         attributes: list,
         edges: list,
         ensemble: int = None,
-        sum_stats: bool = False):
+        sum_stats: bool = False,
+        leadtime: str = None,):
     assert (not ((ensemble == None) and (sum_stats == False))), "Input either ensemble member number or sum_stats=True"
 
     # assert all elements in edges exist in attributes!
@@ -201,7 +202,7 @@ def create_graph_dataset(
     attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
     for i, list_element in enumerate(attributes):
         # compute distance matrix
-        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats))
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df=station_df, mode=list_element, sum_stats=sum_stats, leadtime=leadtime))
 
     attr_mask = torch.empty(num_stations, num_stations, len(edges))
     for i, el in enumerate(edges):
@@ -254,7 +255,7 @@ def normalize_features(data: List[Tuple[pd.DataFrame]]):
     return data
 
 
-def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df: pd.DataFrame, attributes: list, edges: list, date: str, ensemble: int = None, sum_stats: bool = False):
+def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df: pd.DataFrame, attributes: list, edges: list, date: str, ensemble: int = None, sum_stats: bool = False, leadtime: str = None):
     '''
     FOR PLOTTING
     '''
@@ -269,7 +270,7 @@ def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df
     attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
     for i, list_element in enumerate(attributes):
         # compute distance matrix
-        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats))
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats, leadtime))
 
     attr_mask = torch.empty(num_stations, num_stations, len(edges))
     for i, el in enumerate(edges):
@@ -293,7 +294,7 @@ def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df
     graph = Data(x=x, edge_index=g_edge_idx.T, edge_attr=std_g_edge_attr, timestamp=date, y=y, pos=position, n_idx=torch.arange(n_nodes).repeat(n_fc))
     return graph
 
-def normalize_features_and_create_graphs1(df_train: Tuple[pd.DataFrame], df_valid_test: List[Tuple[pd.DataFrame]], station_df: pd.DataFrame, attributes: list, edges: list, ensemble: int=None, sum_stats: bool = False):
+def normalize_features_and_create_graphs1(df_train: Tuple[pd.DataFrame], df_valid_test: List[Tuple[pd.DataFrame]], station_df: pd.DataFrame, attributes: list, edges: list, ensemble: int=None, sum_stats: bool = False, leadtime: str = None):
 
     list = [df_train] + df_valid_test
     dfs = normalize_features(list)
@@ -302,10 +303,10 @@ def normalize_features_and_create_graphs1(df_train: Tuple[pd.DataFrame], df_vali
 
     for i, (features, targets) in enumerate(dfs):
         if i == 0:
-            graphs_train_rf = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats)
+            graphs_train_rf = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats, leadtime=leadtime)
 
         else:
-            graphs_valid_test = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats)
+            graphs_valid_test = create_graph_dataset(df_train=features, df_target=targets, station_df=station_df, attributes=attributes, edges=edges, ensemble = ensemble, sum_stats=sum_stats, leadtime=leadtime)
             test_valid.append(graphs_valid_test)
     return graphs_train_rf, test_valid
 
