@@ -63,7 +63,7 @@ def get_train_valid_graph_data(leadtime: str, graph_name: str):
 
     path_list = [train_path, valid_path, test_rf_path, test_f_path]
     if os.path.exists(train_path) and os.path.exists(valid_path):
-        print(f"Loading precomputed graph data on {graph_name}...")
+        print(f"[INFO] Loading precomputed graph data on {graph_name}...")
         try:
             train_data = torch.load(train_path)
             valid_data = torch.load(valid_path)
@@ -75,9 +75,9 @@ def get_train_valid_graph_data(leadtime: str, graph_name: str):
             print(f"Error loading precomputed data: {e}")
             print("Falling back to data preparation...")
     else:
-        print(f"Precomputed data on {graph_name} not found.")
+        print(f"[INFO] Precomputed data on {graph_name} not found.")
 
-    print("Preparing data from scratch...")
+    print("[INFO] Preparing data from scratch...")
     train_data, valid_data, test_rf, test_f = prepare_graph_data(leadtime=leadtime, graph_name=graph_name,
                                                            path_list=path_list)
 
