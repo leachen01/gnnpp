@@ -57,6 +57,9 @@ def compute_d2_matrix(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats
     return distance_matrix
 
 def load_d2_distances(stations: pd.DataFrame, train_set: pd.DataFrame, sum_stats: bool, leadtime: str) -> np.ndarray:
+    assert leadtime is not None, "leadtime should not be none."
+    assert train_set is not None, "train_set should not be none."
+
     if os.path.exists(f"/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP_{leadtime}.npy"):
         print("[INFO] Loading distances from file...")
         mat = np.load(f"/mnt/sda/Data2/gnnpp-data/d2_distances_EUPP_{leadtime}.npy")
@@ -71,6 +74,9 @@ def create_emp_cdf_of_errors(station_df, target_temp, sum_stats): # cdfs v
     if sum_stats:
         t2m = 't2m_mean'
     f_bar = station_df.groupby(['time'])[t2m].mean()
+    # print(f_bar)
+    # print(f_bar.shape)
+    # print(target_temp.shape)
     def cdf_functions(z):
         return (1/ station_df.nunique()['time']) * np.sum(f_bar.to_numpy() - target_temp.to_numpy() <= z)
     return cdf_functions
@@ -99,6 +105,9 @@ def compute_d3_matrix(stations: pd.DataFrame, train_set, train_target_set, sum_s
     return distance_matrix
 
 def load_d3_distances(stations: pd.DataFrame, train_set, train_target_set, sum_stats: bool, leadtime: str) -> np.ndarray:
+    assert leadtime is not None, "leadtime should not be none."
+    assert train_set is not None, "train_set should not be none."
+    assert train_target_set is not None, "train_target_set should not be none."
     if os.path.exists(f"/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP_{leadtime}.npy"):
         print("[INFO] Loading distances from file...")
         mat = np.load(f"/mnt/sda/Data2/gnnpp-data/d3_distances_EUPP_{leadtime}.npy")
@@ -116,15 +125,18 @@ def load_d4_distances(stations: pd.DataFrame, train_set, train_target_set, sum_s
 
 def compute_mat(station_df: pd.DataFrame, mode: str, sum_stats: bool = None, train_set: pd.DataFrame = None, train_target_set: pd.DataFrame = None, leadtime = None) -> np.array:
     if mode == "geo":
+        # print("geo")
         lon = np.array(station_df["lon"].copy())
         lat = np.array(station_df["lat"].copy())
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         distance_matrix = np.vectorize(dist_km)(lat_mesh, lon_mesh, lat_mesh.T, lon_mesh.T)
     if mode == "alt":
+        # print("alt")
         altitude = np.array(station_df["altitude"].copy())
         mesh1, mesh2 = np.meshgrid(altitude, altitude)
         distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2) # zwei vektoren voneinander abziehen
     if mode == "alt-orog":
+        # print("alt-orog")
         altorog = np.array((station_df['altitude']-station_df['orog']).copy())
         mesh1, mesh2 = np.meshgrid(altorog, altorog)
         distance_matrix = np.vectorize(signed_difference)(mesh1, mesh2)
@@ -137,10 +149,13 @@ def compute_mat(station_df: pd.DataFrame, mode: str, sum_stats: bool = None, tra
         mesh1, mesh2 = np.meshgrid(lat, lat) # check if this meshgrid actually works!!
         distance_matrix = np.vectorize(signed_geodesic_km)(lat1=mesh1, lat2=mesh2) # vorzeichen!
     if mode == "dist2":
+        # print("dist2")
         distance_matrix = load_d2_distances(station_df, train_set, sum_stats, leadtime=leadtime)
     if mode == "dist3":
+        # print("dist3")
         distance_matrix = load_d3_distances(station_df, train_set, train_target_set, sum_stats = sum_stats, leadtime=leadtime)
     if mode == "dist4":
+        # print("dist4")
         distance_matrix = load_d4_distances(station_df, train_set, train_target_set, sum_stats=sum_stats, leadtime=leadtime)
     return distance_matrix
 
@@ -270,7 +285,7 @@ def create_one_graph(df_train: pd.DataFrame, df_target: pd.DataFrame, station_df
     attr_tensor = torch.empty((num_stations, num_stations, t_dim), dtype=torch.float32)
     for i, list_element in enumerate(attributes):
         # compute distance matrix
-        attr_tensor[:,:,i] = torch.tensor(compute_mat(station_df, list_element, sum_stats, leadtime))
+        attr_tensor[:,:,i] = torch.tensor(compute_mat(train_set=df_train, train_target_set=df_target, station_df=station_df, mode=list_element, sum_stats=sum_stats, leadtime=leadtime))
 
     attr_mask = torch.empty(num_stations, num_stations, len(edges))
     for i, el in enumerate(edges):
