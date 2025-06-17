@@ -39,7 +39,7 @@ class ResGnn(torch.nn.Module):
         self.convolutions = ModuleList()
         for _ in range(num_layers):
             self.convolutions.append(
-                GATv2Conv(-1, hidden_channels, heads=heads, edge_dim=edge_dim, add_self_loops=True, fill_value=0.01) # Added
+                GATv2Conv(-1, hidden_channels, heads=heads, edge_dim=edge_dim, add_self_loops=True, fill_value=0.01) # Added edge_dim
             )
         self.lin = Linear(hidden_channels * heads, out_channels)
         self.relu = ReLU()

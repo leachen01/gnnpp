@@ -11,6 +11,14 @@ def crps_no_avg(mu_sigma: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     :return tensor: CRPS value
     :rtype torch.Tensor
     """
+    # drop before
+    # from averaged - why is mask not used for this?
+    # mask = ~torch.isnan(y)
+    # mu = mu[mask]
+    # sigma = sigma[mask]
+    # y = y[mask]
+
+    # why no mask?
     mu, sigma = torch.split(mu_sigma, 1, dim=-1)
     y = y.view((-1, 1))  # make sure y has the right shape
     pi = np.pi  # 3.14159265359
@@ -93,5 +101,5 @@ class NormalCRPS(torch.nn.Module):
         cdf = self.dist.cdf(z_red)
         pdf = torch.exp(self.dist.log_prob(z_red))
         crps = sigma * (z_red * (2.0 * cdf - 1.0) + 2.0 * pdf - self._inv_sqrt_pi)
-        crps_score = torch.mean(crps)
+        crps_score = torch.mean(crps) # only difference to
         return crps_score

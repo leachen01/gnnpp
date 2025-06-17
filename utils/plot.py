@@ -4,8 +4,18 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import cmasher as cmr
 from torch_geometric.data import Data
 
+def get_color(name):
+    if "24h" in name:
+        return cmr.get_sub_cmap(cmr.swamp,0.3,0.8)
+    elif "72h" in name:
+        return cmr.get_sub_cmap(cmr.freeze,0.3,0.8)
+    elif "120h" in name:
+        return cmr.get_sub_cmap(cmr.flamingo,0.3,0.8)
+    else:
+        return cmr.get_sub_cmap(cmr.amber,0.3,0.8)
 
 def plot_map() -> plt.Axes:
     """
@@ -17,7 +27,7 @@ def plot_map() -> plt.Axes:
     proj = ccrs.PlateCarree()
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(1, 1, 1, projection=proj)
-    ax.coastlines()
+    ax.coastlines(resolution='50m')
     ax.set_extent([1, 12, 45, 54], crs=proj)
     ax.add_feature(cfeature.LAND, color="lightgrey")
     ax.add_feature(cfeature.BORDERS)

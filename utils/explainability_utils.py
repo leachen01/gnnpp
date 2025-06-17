@@ -81,7 +81,7 @@ class MultigraphWrapper(nn.Module):
         return self.model(data)
 
 
-def create_explainer(model, epochs, lr, edge_size: float=0.005):
+def create_explainer(model, epochs, lr, edge_size: float=0.005, node_feat_size: float= 1.0):
     # print(model)
     wrapped_model = MultigraphWrapper(model)
     explainer = Explainer(
@@ -91,6 +91,7 @@ def create_explainer(model, epochs, lr, edge_size: float=0.005):
             lr=lr,
             coeffs = {
                 'edge_size': edge_size,
+                'node_feat_size': node_feat_size,
             }),
         explanation_type='model',
         node_mask_type='attributes',

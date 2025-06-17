@@ -172,9 +172,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 # explored_models/gnn_24h/models/run_24h.ckpt
-/explored_models/gnn_24h/
-/explored_models/gnn_new_attr_24h/
-/explored_models/gnn_run3/
+/explored_models_old/gnn_24h/
+/explored_models_old/gnn_new_attr_24h/
+/explored_models_old/gnn_run3/
 /leas_final_models/
 /gnn_run3/
 /gnn_run3p7/
