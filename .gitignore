@@ -203,3 +203,8 @@ cython_debug/
 /trained_models/
 /explored_models_old/
 /gnn_explore_old/
+/exploration/gnn/gnn_explore.ipynb
+/exploration/gnn/gnn_run3.ipynb
+/exploration/gnn/gnn_run_new.ipynb
+/exploration/gnn/gnn_run_old.ipynb
+/exploration/gnn/gnn_study.ipynb

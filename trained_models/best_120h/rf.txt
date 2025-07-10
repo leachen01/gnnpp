@@ -1,5 +1,0 @@
-Data: rf
-Leadtime: 120h
-Final crps: 1.166457809898041
-Mean PI length: 5.484285077479995
-Coverage: 0.8232108361696256

@@ -1,6 +1,0 @@
-{"leadtime":"24h",
-"batch_size":4096,
-"lr":0.01,
-"hidden_channels": [256],
-"max_epochs": 26,
-"only_summary": "True"}

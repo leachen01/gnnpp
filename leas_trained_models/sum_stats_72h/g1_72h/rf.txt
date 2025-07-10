@@ -1,0 +1,3 @@
+Data: rf
+Leadtime: 72h
+Final crps: 0.8457577004251705

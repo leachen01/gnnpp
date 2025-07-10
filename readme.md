@@ -1,40 +1,65 @@
-# Graph Neural Networks and Spatial Information Learning for Post-Processing Ensemble Weather Forecasts
+# Improving Graph Neural Networks for Ensemble Post-Processing in Weather Forecasting
 
-This repository contains the code of the paper Graph Neural Networks and Spatial Information Learning for Post-Processing Ensemble Weather Forecasts.
+This repository contains the code of the bachelor thesis 'Improving Graph Neural Networks for Ensemble Post-Processing in Weather Forecasting'.
 
 ## Data
 
-In this Study the EUPPBench dataset ([Demaeyer et al., 2023](https://essd.copernicus.org/articles/15/2635/2023/)) is used, which is publicly available on [Zenodo](https://zenodo.org/records/7708362) or using [climetlab-eumetnet-postprocessing-benchmark
+Following [Feik et al., 2024](https://arxiv.org/abs/2407.11050), we use the EUPPBench dataset ([Demaeyer et al., 2023](https://essd.copernicus.org/articles/15/2635/2023/)) in this thesis, which is publicly available on [Zenodo](https://zenodo.org/records/7708362) or using [climetlab-eumetnet-postprocessing-benchmark
 ](https://github.com/EUPP-benchmark/climetlab-eumetnet-postprocessing-benchmark).
 
 ## Files and Folders
 
-### 🕸️ GNN Training and Evaluation
+### Exploration
+Contains the main implementation for GNN model runs and explainability.
 
-📄 sweep.py: Hyperparameter sweep for GNN models.  
-📄 train_ensemble.py:  Train a GNN, given the parameters in trained_models/X_XXh/params.json.  
-📄 evaluate_ensemble.py: Load an ensemble of trained GNNs and evaluate their averaged prediction.  
+**📁 analysis**: 
+- EDA for 120 and 122 stations. The thesis will continue with 120 stations due to the missing labels.
+- Reproduction of DRN (Feik et al., 2024)
+- CRPS evaluation for one run instead of model ensemble
 
-📁 **Models**  
+**📁 explainability**: 
+
+- gnnexplainer.ipynb: exploration of gnnexplainer, creation of MultigraphWrapper
+- gnnexplainer_oneseed.ipynb: cleaner version of gnnexplainer.ipynb, accounting for randomness using seed 42 and averaging over multiple GNNExplainer explanations
+- gnnexplainer_generate_figures.py: generate figures for thesis.
+- permutation_study.ipynb: permutation importance for both DRN and all GNN models
+
+**📁 gnn**:
+- gnn_run4: running models for all lead times for reforecast and forecast
+
+**📁 graph_creation_file**: 
+- create_graph_dataset.ipynb: functions created (are copied to utils.data now)
+- graph_creation
+
+**📁 plot**: 
+- XX
+
+**📁 sweeps**: 
+- 
+
 📄 drn.py: Reimplementatioin of DRN (Rasp & Lerch, 2018) in PyTorch  
 📄 loss.py: CRPS loss functions  
 📄 model_utils.py: Utility Functions for the Embedding or ensuring positivity of the predicted $\sigma$  
-📄 benchmark_models.py: Implementation of different GNN architectures used in graphensemble/multigraph.py  
+📄 benchmark_models.py: Implementation of different GNN architectures used in graphensemble/multigraph.py
 
-### 🌦️ DRN
+### Leas_trained_models
+Contains the parameters for all configurations for both DRN and the ensemble summary statistics.
+📁 drn: Hyperparameters from [Feik et al., 2024](https://arxiv.org/abs/2407.11050) for lead times: 24h, 72h, 120h; forecast types: rf, f.  
+📁 sum_stats: Using hyperparameters from hyperparameter sweep in exploration/sweeps
 
-📄 drn_sweep.py: Hyperparameter sweep for the DRN.  
-📄 drn_train.py: Train a DRN, given the parameters in trained_models/drn_XXh/params.json.  
-📄 drn_eval.py: Load an ensemble of trained DRNs and evaluate their averaged prediction.  
+### Models
+Contains the GNN and DRN model architecture from [Feik et al., 2024](https://arxiv.org/abs/2407.11050), they are adapted by the integration of edge attributes and the number of stations
+📁 Graphensemble: Folder with the GNN model architecture.
+📄 drn: DRN model architecture.  
+📄 loss: Model loss calculation, ignores NaN values in loss calculation.  
+📄 model_utils: Utils used for GNN models.  
 
-### 🛠️ Others
-
-📁 Trained Models: Folder where restults of trained models are stored.
-📁 Utils: Utility functions for plotting, data loading and preparation.  
-
-### 📈 Further Results and Plotting
-
-📄 evaluation_plots_etc.ipynb: Almost all plots in the paper are generated here.  
-📄 further_results.ipynb: Used to calculate PI length and coverage.  
-📄 permutation_imp.py: Calculate feature importance.  
-📄 stations.ipynb: Plot of map of stations.  
+### Utils
+Contains all utility functions for EDA, DRN model, explainability, and plotting.
+📄 data.py: loading data for EDA in anaylsis/eda120, and creating graphs by computing distances and adjacency matrices.  
+📄 data122.py: copy of data but without dropping stations 62 and 74, used for EDA in analysis/eda.  
+📄 drn_utils.py: NaN values are dropped and features are normalized.
+📄 explainability_utils.py: 
+    - Permutation Importance: the whole feature list, shuffling of DRN features.
+    - GNNExplainer: MultigraphWrapper, gnnexplainer creation for MultigraphWrapper
+📄 plot.py: For plotting cartopy map.  
