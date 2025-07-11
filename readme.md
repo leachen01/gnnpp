@@ -48,23 +48,23 @@ Contains the main implementation for GNN model runs and explainability.
 📄 graph_creation: all functions needed to create a graph (distance metrics calculations, graph construction, etc.)
 
 ### Leas_trained_models
-Contains the parameters for all configurations for both DRN and the ensemble summary statistics.
-📁 drn: Hyperparameters from [Feik et al., 2024](https://arxiv.org/abs/2407.11050) for lead times: 24h, 72h, 120h; forecast types: rf, f.  
+Contains the parameters for all configurations for both DRN and the ensemble summary statistics.  
+📁 drn: Hyperparameters from [Feik et al., 2024](https://arxiv.org/abs/2407.11050) for lead times: 24h, 72h, 120h; forecast types: rf, f.    
 📁 sum_stats: Using hyperparameters from hyperparameter sweep in exploration/sweeps
 
 ### Models
-Contains the GNN and DRN model architecture from [Feik et al., 2024](https://arxiv.org/abs/2407.11050), they are adapted by the integration of edge attributes and the number of stations
-📁 Graphensemble: Folder with the GNN model architecture.
-📄 drn: DRN model architecture.  
-📄 loss: Model loss calculation, ignores NaN values in loss calculation.  
+Contains the GNN and DRN model architecture from [Feik et al., 2024](https://arxiv.org/abs/2407.11050), they are adapted by the integration of edge attributes and the number of stations  
+📁 Graphensemble: Folder with the GNN model architecture.  
+📄 drn: DRN model architecture.    
+📄 loss: Model loss calculation, ignores NaN values in loss calculation.    
 📄 model_utils: Utils used for GNN models.  
 
 ### Utils
-Contains all utility functions for EDA, DRN model, explainability, and plotting.
-📄 data.py: loading data for EDA in anaylsis/eda120, and creating graphs by computing distances and adjacency matrices.  
-📄 data122.py: copy of data but without dropping stations 62 and 74, used for EDA in analysis/eda.  
-📄 drn_utils.py: NaN values are dropped and features are normalized.
-📄 explainability_utils.py: 
-    - Permutation Importance: the whole feature list, shuffling of DRN features.
-    - GNNExplainer: MultigraphWrapper, gnnexplainer creation for MultigraphWrapper
+Contains all utility functions for EDA, DRN model, explainability, and plotting.  
+📄 data.py: loading data for EDA in anaylsis/eda120, and creating graphs by computing distances and adjacency matrices.    
+📄 data122.py: copy of data but without dropping stations 62 and 74, used for EDA in analysis/eda.    
+📄 drn_utils.py: NaN values are dropped and features are normalized.  
+📄 explainability_utils.py:   
+- Permutation Importance: the whole feature list, shuffling of DRN features.  
+- GNNExplainer: MultigraphWrapper, gnnexplainer creation for MultigraphWrapper  
 📄 plot.py: For plotting cartopy map.  
