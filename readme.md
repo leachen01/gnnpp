@@ -13,9 +13,10 @@ Following [Feik et al., 2024](https://arxiv.org/abs/2407.11050), we use the EUPP
 Contains the main implementation for GNN model runs and explainability.
 
 **📁 analysis**: 
-- EDA for 120 and 122 stations. The thesis will continue with 120 stations due to the missing labels.
-- Reproduction of DRN (Feik et al., 2024)
-- CRPS evaluation for one run instead of model ensemble
+- eda120, eda122: EDA for 120 and 122 stations. The thesis will continue with 120 stations due to the missing labels.
+- check_122vs120_difference: run both datasets and check results
+- drn_run: Reproduction of DRN (Feik et al., 2024)
+- pred_crps_values: CRPS evaluation for one run instead of model ensemble
 
 **📁 explainability**: 
 
@@ -28,19 +29,23 @@ Contains the main implementation for GNN model runs and explainability.
 - gnn_run4: running models for all lead times for reforecast and forecast
 
 **📁 graph_creation_file**: 
-- create_graph_dataset.ipynb: functions created (are copied to utils.data now)
-- graph_creation
+- create_graph_dataset: functions created (are copied to utils.data now)
+- visualisation_final: using functions to create graphs for plotting
 
 **📁 plot**: 
-- XX
+- graph_eda: plot nan map and altitude map, plot distribution of distance metrics, plot dist2-dist3 relationship,
+- plot_crps_improvement: CRPSS per station compared to DRN CRPS as reference, also comparing CRPS with $g_1$ as reference 
+- plot_dist2dist3: plot empirical CDFs used for dist2 and dist3
+- plot_eda: EDA for dataset, CRPS theoretical background plots
+- plot_pi: permutation importance plots following Feik et al. (2024)
+- plot_pit: plot PIT histograms following Feik et al. (2024)
 
 **📁 sweeps**: 
-- 
-
-📄 drn.py: Reimplementatioin of DRN (Rasp & Lerch, 2018) in PyTorch  
-📄 loss.py: CRPS loss functions  
-📄 model_utils.py: Utility Functions for the Embedding or ensuring positivity of the predicted $\sigma$  
-📄 benchmark_models.py: Implementation of different GNN architectures used in graphensemble/multigraph.py
+- for hyperparameter tuning of all three lead times and corresponding graphs $g_3$, $g_4$, and $g_5$
+ 
+📄 get_graphs_and_data: saving and retrieving saved graph data so that it does not need to be created every single time all again  
+📄 gnn_train: GNN training taken from Feik et al. (2024), not used in this thesis  
+📄 graph_creation: all functions needed to create a graph (distance metrics calculations, graph construction, etc.)
 
 ### Leas_trained_models
 Contains the parameters for all configurations for both DRN and the ensemble summary statistics.

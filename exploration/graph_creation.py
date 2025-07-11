@@ -1,11 +1,3 @@
-# import numpy as np
-# import torch
-# import matplotlib.pyplot as plt
-# import torch_geometric.datasets as datasets
-# import torch_geometric.data as data
-# import torch_geometric.transforms as transforms
-# import networkx as nx
-# from torch_geometric.utils import to_networkx
 from scipy.interpolate import interp1d
 from utils.data import *
 from torch_geometric.utils import is_undirected, degree, contains_isolated_nodes
